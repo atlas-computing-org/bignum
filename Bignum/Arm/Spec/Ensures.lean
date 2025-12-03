@@ -5,6 +5,9 @@ Author: Alexandre Rademaker
 -/
 module
 
+import Bignum.Arm.Machine.Semantics
+public import Mathlib.Data.Nat.Notation
+
 /-!
 # Ensures Specification System
 
@@ -20,8 +23,6 @@ An `ensures` specification consists of:
 Source: s2n-bignum/arm/tutorial/simple.ml:65-84 (SIMPLE_SPEC)
 The ensures predicate is used throughout s2n-bignum proofs.
 -/
-
-import Bignum.Arm.Machine.Semantics
 
 namespace Bignum
 

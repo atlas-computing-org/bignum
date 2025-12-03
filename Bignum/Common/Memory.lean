@@ -4,6 +4,10 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Author: Alexandre Rademaker
 -/
 module
+public import Bignum.Common.Word
+public import Mathlib.Data.Nat.Notation
+
+@[expose] public section
 
 /-!
 # Memory Model
@@ -24,8 +28,6 @@ This file defines the memory model for ARM verification.
 This corresponds to the memory component in HOL Light's ARM model.
 Source: s2n-bignum/common/components.ml (memory-related definitions)
 -/
-
-import Bignum.Common.Word
 
 namespace Bignum
 
@@ -48,21 +50,24 @@ def Memory.empty : Memory := fun _ => none
 /--
 Read a single byte from memory at the given address.
 -/
-def Memory.read_byte (mem : Memory) (addr : Address) : Option UInt8 :=
+def Memory.read_byte (mem : Memory) (addr : Address)
+  : Option UInt8 :=
   mem addr
 
 /--
 Write a single byte to memory at the given address.
 -/
-def Memory.write_byte (mem : Memory) (addr : Address) (byte : UInt8) : Memory :=
+def Memory.write_byte (mem : Memory) (addr : Address) (byte : UInt8)
+  : Memory :=
   fun a => if a = addr then some byte else mem a
 
 /--
 Read n bytes from memory starting at addr.
 Returns None if any byte is uninitialized.
 -/
-def Memory.read_bytes (mem : Memory) (addr : Address) (n : ℕ) : Option (List UInt8) :=
-  let rec aux (i : ℕ) (acc : List UInt8) : Option (List UInt8) :=
+def Memory.read_bytes (mem : Memory) (addr : Address) (n : Nat)
+  : Option (List UInt8) :=
+  let rec aux (i : Nat) (acc : List UInt8) : Option (List UInt8) :=
     if i = 0 then
       some acc.reverse
     else
@@ -76,8 +81,8 @@ def Memory.read_bytes (mem : Memory) (addr : Address) (n : ℕ) : Option (List U
 Write bytes to memory starting at addr.
 -/
 def Memory.write_bytes (mem : Memory) (addr : Address) (bytes : List UInt8) : Memory :=
-  bytes.enum.foldl
-    (fun m (i, byte) => m.write_byte (addr + Word64.ofNat i) byte)
+  bytes.zipIdx.foldl
+    (fun m (byte, i) => m.write_byte (addr + Word64.ofNat i) byte)
     mem
 
 /--
@@ -90,8 +95,8 @@ def Memory.read_word64 (mem : Memory) (addr : Address) : Option Word64 :=
   | some bytes =>
     -- Combine 8 bytes in little-endian order
     -- byte[0] is least significant, byte[7] is most significant
-    some $ bytes.enum.foldl
-      (fun acc (i, byte) => acc + Word64.ofNat (byte.toNat * 2^(8 * i)))
+    some <| bytes.zipIdx.foldl
+      (fun acc (byte, i) => acc + Word64.ofNat (byte.toNat * 2^(8 * i)))
       0
 
 /--
@@ -147,8 +152,10 @@ Bytes are loaded and aligned at a given address.
 Corresponds to HOL Light's `aligned_bytes_loaded`.
 Source: Used in s2n-bignum proofs, e.g., simple.ml:69-72
 -/
-def aligned_bytes_loaded (mem : Memory) (addr : Address) (bytes : List UInt8) : Prop :=
+def aligned_bytes_loaded (mem : Memory) (addr : Address) (bytes : List UInt8)
+  : Prop :=
   addr.val % 4 = 0 ∧  -- 4-byte alignment
-  ∀ i, i < bytes.length → mem.read_byte (addr + Word64.ofNat i) = some (bytes.get! i)
+  ∀ i, i < bytes.length →
+    mem.read_byte (addr + Word64.ofNat i) = some (bytes[i]!)
 
 end Bignum

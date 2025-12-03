@@ -5,6 +5,9 @@ Author: Alexandre Rademaker
 -/
 module
 
+import Bignum.Arm.Machine.State
+public import Mathlib.Data.Nat.Notation
+
 /-!
 # ARM Instructions
 
@@ -21,8 +24,6 @@ This will be expanded to include all instructions needed for bignum operations.
 Source: s2n-bignum/arm/proofs/instruction.ml (ARM instruction definitions)
 Source: s2n-bignum/arm/tutorial/simple.ml (example: ADD and SUB)
 -/
-
-import Bignum.Arm.Machine.State
 
 namespace Bignum.Arm
 

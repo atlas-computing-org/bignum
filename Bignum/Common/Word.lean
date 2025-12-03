@@ -29,21 +29,23 @@ namespace Bignum
 /--
 A 64-bit word, represented as a bitvector.
 -/
-abbrev Word64 := BitVec 64
+public abbrev Word64 := BitVec 64
 
 /--
 Convert a Word64 to a natural number.
 
 Corresponds to HOL Light's `val : (N)word -> num`
 -/
-def Word64.val (w : Word64) : ℕ := w.toNat
+public def Word64.val (w : Word64) : Nat :=
+  w.toNat
 
 /--
 Convert a natural number to a Word64 (with implicit modulo 2^64).
 
 Corresponds to HOL Light's `word : num -> (N)word`
 -/
-def Word64.ofNat (n : ℕ) : Word64 := BitVec.ofNat 64 n
+public def Word64.ofNat (n : Nat) : Word64 :=
+  BitVec.ofNat 64 n
 
 /--
 Word addition with carry out.
@@ -54,7 +56,7 @@ Returns (sum, carry) where:
 
 This models the ARM ADDS instruction behavior.
 -/
-def Word64.addWithCarry (x y : Word64) : Word64 × ℕ :=
+def Word64.addWithCarry (x y : Word64) : Word64 × Nat :=
   let sum := x.val + y.val
   (Word64.ofNat sum, if sum >= 2^64 then 1 else 0)
 
@@ -67,7 +69,7 @@ Returns (sum, carry_out) where:
 
 This models the ARM ADCS instruction behavior.
 -/
-def Word64.adcWithCarry (x y : Word64) (carry_in : ℕ) : Word64 × ℕ :=
+def Word64.adcWithCarry (x y : Word64) (carry_in : Nat) : Word64 × Nat :=
   let sum := x.val + y.val + carry_in
   (Word64.ofNat sum, if sum >= 2^64 then 1 else 0)
 
@@ -80,7 +82,7 @@ Returns (diff, borrow) where:
 
 This models the ARM SUBS instruction behavior.
 -/
-def Word64.subWithBorrow (x y : Word64) : Word64 × ℕ :=
+def Word64.subWithBorrow (x y : Word64) : Word64 × Nat :=
   let diff := x.val - y.val
   (Word64.ofNat diff, if x.val < y.val then 1 else 0)
 
@@ -93,9 +95,10 @@ Returns (diff, borrow_out) where:
 
 This models the ARM SBCS instruction behavior.
 -/
-def Word64.sbcWithBorrow (x y : Word64) (borrow_in : ℕ) : Word64 × ℕ :=
-  let diff := x.val - y.val - borrow_in
-  (Word64.ofNat diff, if x.val < y.val + borrow_in then 1 else 0)
+def Word64.sbcWithBorrow (x y : Word64) (borrow_in : Nat)
+  : Word64 × Nat :=
+   let diff := x.val - y.val - borrow_in
+   (Word64.ofNat diff, if x.val < y.val + borrow_in then 1 else 0)
 
 /--
 The value of a word constructed from a natural number that's already
@@ -105,16 +108,16 @@ Corresponds to HOL Light's VAL_WORD_EQ and related theorems.
 
 Source: Related to s2n-bignum/common/bignum.ml:29-31 (VAL_WORD_BIGDIGIT)
 -/
-theorem val_ofNat_of_lt {n : ℕ} (h : n < 2^64) :
+theorem val_ofNat_of_lt {n : Nat} (h : n < 2^64) :
     (Word64.ofNat n).val = n := by
   unfold Word64.ofNat Word64.val
-  simp [BitVec.toNat_ofNat]
-  exact Nat.mod_eq_of_lt h
+  grind only [= BitVec.toNat_ofNat]
+
 
 /--
 Converting to word and back gives modulo 2^64.
 -/
-theorem val_ofNat (n : ℕ) :
+theorem val_ofNat (n : Nat) :
     (Word64.ofNat n).val = n % 2^64 := by
   unfold Word64.ofNat Word64.val
   simp [BitVec.toNat_ofNat]

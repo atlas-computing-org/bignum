@@ -5,6 +5,8 @@ Author: Alexandre Rademaker
 -/
 module
 
+import Bignum.Common.Memory
+
 /-!
 # ARM Machine State
 
@@ -22,8 +24,6 @@ This file defines the ARM machine state used for verification.
 This corresponds to the ARM state in HOL Light's ARM model.
 Source: s2n-bignum/arm/proofs/arm.ml and instruction.ml
 -/
-
-import Bignum.Common.Memory
 
 namespace Bignum
 
@@ -72,7 +72,6 @@ structure ArmState where
   regs : Reg → Word64    -- Register values
   flags : Flags          -- Condition flags
   mem : Memory           -- Memory state
-  deriving Repr
 
 /--
 Read a register value from the state.
@@ -144,7 +143,7 @@ def ArmState.write_flags (s : ArmState) (f : Flags) : ArmState :=
 Convenience notation for reading registers.
 Following HOL Light convention: `read PC s` means read program counter from state s.
 -/
-notation "read_" r:max => fun s : ArmState => s.read_reg r
+notation "read_" r:max => fun s : ArmState => ArmState.read_reg s r
 
 /--
 Helper: Create initial state with given register values.

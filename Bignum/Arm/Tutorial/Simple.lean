@@ -4,6 +4,8 @@ Released under Apache 2.0 license as described in the file LICENSE.
 Author: Alexandre Rademaker
 -/
 
+import Bignum.Arm.Spec.Ensures
+
 /-!
 # Simple Example: Proving a Simple ARM Program
 
@@ -23,8 +25,6 @@ we have X2=a (the additions and subtractions cancel out).
 Source: s2n-bignum/arm/tutorial/simple.ml (complete file)
 This is a line-by-line port with detailed correspondence documented.
 -/
-
-import Bignum.Arm.Spec.Ensures
 
 namespace Bignum.Arm.Tutorial
 

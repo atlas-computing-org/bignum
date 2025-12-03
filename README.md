@@ -62,17 +62,17 @@ See [Development Plan](#development-plan) below.
 
 Each Lean file documents its correspondence with the original HOL Light source:
 
-| Lean File | HOL Light Source | Description |
-|-----------|------------------|-------------|
-| `Bignum/Common/Basic/Defs.lean` | `s2n-bignum/common/bignum.ml:11-77` | Core bignum definitions |
-| `Bignum/Common/Basic/Lemmas.lean` | `s2n-bignum/common/bignum.ml:79-150` | Fundamental theorems |
-| `Bignum/Common/Word.lean` | HOL Light `Library/words.ml` | 64-bit word operations |
-| `Bignum/Common/Memory.lean` | `s2n-bignum/common/components.ml` | Memory model |
-| `Bignum/Arm/Machine/State.lean` | `s2n-bignum/arm/proofs/arm.ml` | ARM machine state |
-| `Bignum/Arm/Machine/Instruction.lean` | `s2n-bignum/arm/proofs/instruction.ml` | ARM instructions |
-| `Bignum/Arm/Machine/Semantics.lean` | `s2n-bignum/arm/proofs/arm.ml` | Instruction semantics |
-| `Bignum/Arm/Spec/Ensures.lean` | `s2n-bignum/arm/tutorial/simple.ml:65-84` | Specification framework |
-| `Bignum/Arm/Tutorial/Simple.lean` | `s2n-bignum/arm/tutorial/simple.ml` | Complete tutorial port |
+| Lean File                             | HOL Light Source                          | Description             |
+|---------------------------------------|-------------------------------------------|-------------------------|
+| `Bignum/Common/Basic/Defs.lean`       | `s2n-bignum/common/bignum.ml:11-77`       | Core bignum definitions |
+| `Bignum/Common/Basic/Lemmas.lean`     | `s2n-bignum/common/bignum.ml:79-150`      | Fundamental theorems    |
+| `Bignum/Common/Word.lean`             | HOL Light `Library/words.ml`              | 64-bit word operations  |
+| `Bignum/Common/Memory.lean`           | `s2n-bignum/common/components.ml`         | Memory model            |
+| `Bignum/Arm/Machine/State.lean`       | `s2n-bignum/arm/proofs/arm.ml`            | ARM machine state       |
+| `Bignum/Arm/Machine/Instruction.lean` | `s2n-bignum/arm/proofs/instruction.ml`    | ARM instructions        |
+| `Bignum/Arm/Machine/Semantics.lean`   | `s2n-bignum/arm/proofs/arm.ml`            | Instruction semantics   |
+| `Bignum/Arm/Spec/Ensures.lean`        | `s2n-bignum/arm/tutorial/simple.ml:65-84` | Specification framework |
+| `Bignum/Arm/Tutorial/Simple.lean`     | `s2n-bignum/arm/tutorial/simple.ml`       | Complete tutorial port  |
 
 ## Architecture Organization
 

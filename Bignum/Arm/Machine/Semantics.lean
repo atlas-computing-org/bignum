@@ -5,6 +5,8 @@ Author: Alexandre Rademaker
 -/
 module
 
+import Bignum.Arm.Machine.Instruction
+
 /-!
 # ARM Instruction Semantics
 
@@ -17,8 +19,6 @@ Each instruction transforms an `ArmState` to a new `ArmState`.
 Source: s2n-bignum/arm/proofs/arm.ml (ARM semantics)
 Source: s2n-bignum/arm/tutorial/simple.ml (example execution)
 -/
-
-import Bignum.Arm.Machine.Instruction
 
 namespace Bignum.Arm
 
