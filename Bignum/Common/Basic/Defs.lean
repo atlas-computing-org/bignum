@@ -3,6 +3,9 @@ Copyright (c) 2025 Alexandre Rademaker. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Author: Alexandre Rademaker
 -/
+module
+
+@[expose] public section
 
 /-!
 # Basic Bignum Definitions
@@ -36,6 +39,7 @@ Source: s2n-bignum/common/bignum.ml:11-12
 -/
 def bigdigit (n : Nat) (i : Nat) : Nat :=
   (n / (2 ^ (64 * i))) % (2 ^ 64)
+
 
 /--
 Extract the high digits of n starting from position i.

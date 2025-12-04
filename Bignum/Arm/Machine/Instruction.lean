@@ -5,8 +5,11 @@ Author: Alexandre Rademaker
 -/
 module
 
-import Bignum.Arm.Machine.State
+public import Bignum.Common
+public import Bignum.Arm.Machine.State
 public import Mathlib.Data.Nat.Notation
+
+@[expose] public section
 
 /-!
 # ARM Instructions
@@ -40,60 +43,44 @@ The simple.ml example uses:
 Source: s2n-bignum/arm/tutorial/simple.ml:17-18, 23-24
 -/
 inductive Instruction
-  | ADD : Reg → Reg → Reg → Instruction
-    -- ADD Xd, Xn, Xm: Xd := Xn + Xm
-  | SUB : Reg → Reg → Reg → Instruction
-    -- SUB Xd, Xn, Xm: Xd := Xn - Xm
+  | ADD  : Reg → Reg → Reg → Instruction
+  | SUB  : Reg → Reg → Reg → Instruction
   | ADDS : Reg → Reg → Reg → Instruction
-    -- ADDS Xd, Xn, Xm: Xd := Xn + Xm, set flags
   | SUBS : Reg → Reg → Reg → Instruction
-    -- SUBS Xd, Xn, Xm: Xd := Xn - Xm, set flags
   | ADCS : Reg → Reg → Reg → Instruction
-    -- ADCS Xd, Xn, Xm: Xd := Xn + Xm + Carry, set flags
   | SBCS : Reg → Reg → Reg → Instruction
-    -- SBCS Xd, Xn, Xm: Xd := Xn - Xm - ~Carry, set flags
-  | AND : Reg → Reg → Reg → Instruction
-    -- AND Xd, Xn, Xm: Xd := Xn AND Xm
-  | ORR : Reg → Reg → Reg → Instruction
-    -- ORR Xd, Xn, Xm: Xd := Xn OR Xm
-  | EOR : Reg → Reg → Reg → Instruction
-    -- EOR Xd, Xn, Xm: Xd := Xn XOR Xm
-  | LSL : Reg → Reg → ℕ → Instruction
-    -- LSL Xd, Xn, #imm: Xd := Xn << imm
-  | LSR : Reg → Reg → ℕ → Instruction
-    -- LSR Xd, Xn, #imm: Xd := Xn >> imm (logical)
-  | LDR : Reg → Address → Instruction
-    -- LDR Xd, [Xn]: Load 64-bit word from memory
-  | STR : Reg → Address → Instruction
-    -- STR Xd, [Xn]: Store 64-bit word to memory
-  | MOV : Reg → Reg → Instruction
-    -- MOV Xd, Xn: Xd := Xn (alias for ORR Xd, XZR, Xn)
-  | MOVZ : Reg → UInt16 → Instruction
-    -- MOVZ Xd, #imm: Xd := imm (zero extend)
-  | RET : Instruction
-    -- RET: Return (branch to X30)
+  | AND  : Reg → Reg → Reg → Instruction
+  | ORR  : Reg → Reg → Reg → Instruction
+  | EOR  : Reg → Reg → Reg → Instruction
+  | LSL  : Reg → Reg → ℕ → Instruction
+  | LSR  : Reg → Reg → ℕ → Instruction
+  | LDR  : Reg → Address → Instruction
+  | STR  : Reg → Address → Instruction
+  | MOV  : Reg → Reg → Instruction
+  | MOVZ : Reg → ℕ → ℕ → Instruction  -- MOVZ Rd, #imm, LSL #pos
+  | RET  : Instruction
   deriving Repr
 
 /--
 Pretty-print an instruction in ARM assembly syntax.
 -/
 def Instruction.toString : Instruction → String
-  | ADD rd rn rm => s!"ADD {rd}, {rn}, {rm}"
-  | SUB rd rn rm => s!"SUB {rd}, {rn}, {rm}"
+  | ADD rd rn rm  => s!"ADD {rd}, {rn}, {rm}"
+  | SUB rd rn rm  => s!"SUB {rd}, {rn}, {rm}"
   | ADDS rd rn rm => s!"ADDS {rd}, {rn}, {rm}"
   | SUBS rd rn rm => s!"SUBS {rd}, {rn}, {rm}"
   | ADCS rd rn rm => s!"ADCS {rd}, {rn}, {rm}"
   | SBCS rd rn rm => s!"SBCS {rd}, {rn}, {rm}"
-  | AND rd rn rm => s!"AND {rd}, {rn}, {rm}"
-  | ORR rd rn rm => s!"ORR {rd}, {rn}, {rm}"
-  | EOR rd rn rm => s!"EOR {rd}, {rn}, {rm}"
+  | AND rd rn rm  => s!"AND {rd}, {rn}, {rm}"
+  | ORR rd rn rm  => s!"ORR {rd}, {rn}, {rm}"
+  | EOR rd rn rm  => s!"EOR {rd}, {rn}, {rm}"
   | LSL rd rn imm => s!"LSL {rd}, {rn}, #{imm}"
   | LSR rd rn imm => s!"LSR {rd}, {rn}, #{imm}"
-  | LDR rd addr => s!"LDR {rd}, [{addr.val}]"
-  | STR rd addr => s!"STR {rd}, [{addr.val}]"
-  | MOV rd rn => s!"MOV {rd}, {rn}"
-  | MOVZ rd imm => s!"MOVZ {rd}, #{imm}"
-  | RET => "RET"
+  | LDR rd addr   => s!"LDR {rd}, [{addr.val}]"
+  | STR rd addr   => s!"STR {rd}, [{addr.val}]"
+  | MOV rd rn     => s!"MOV {rd}, {rn}"
+  | MOVZ rd imm pos => s!"MOVZ {rd}, #{imm}, LSL #{pos}"
+  | RET             => "RET"
 
 instance : ToString Instruction := ⟨Instruction.toString⟩
 

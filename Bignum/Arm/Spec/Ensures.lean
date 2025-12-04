@@ -5,8 +5,10 @@ Author: Alexandre Rademaker
 -/
 module
 
-import Bignum.Arm.Machine.Semantics
+public import Bignum.Arm.Machine.Semantics
 public import Mathlib.Data.Nat.Notation
+
+@[expose] public section
 
 /-!
 # Ensures Specification System

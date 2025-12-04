@@ -47,6 +47,7 @@ Corresponds to HOL Light's `word : num -> (N)word`
 public def Word64.ofNat (n : Nat) : Word64 :=
   BitVec.ofNat 64 n
 
+
 /--
 Word addition with carry out.
 

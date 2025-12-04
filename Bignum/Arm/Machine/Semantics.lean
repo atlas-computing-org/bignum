@@ -5,7 +5,9 @@ Author: Alexandre Rademaker
 -/
 module
 
-import Bignum.Arm.Machine.Instruction
+public import Bignum.Arm.Machine.Instruction
+
+@[expose] public section
 
 /-!
 # ARM Instruction Semantics
@@ -44,17 +46,13 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n + val_m  -- BitVec addition (wraps at 2^64)
-    s.write_reg rd result
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
+    s.write_reg rd result |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.SUB rd rn rm =>
     -- Xd := Xn - Xm (word subtraction, no flags)
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n - val_m  -- BitVec subtraction (wraps at 2^64)
-    s.write_reg rd result
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
+    s.write_reg rd result |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.ADDS rd rn rm =>
     -- Xd := Xn + Xm, set flags
     let val_n := s.read_reg rn
@@ -68,9 +66,7 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
       N := result.val >= 2^63
     }
     s.write_reg rd result
-    |>.write_flags flags
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
+     |>.write_flags flags |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.SUBS rd rn rm =>
     -- Xd := Xn - Xm, set flags
     let val_n := s.read_reg rn
@@ -84,9 +80,7 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
       N := result.val >= 2^63
     }
     s.write_reg rd result
-    |>.write_flags flags
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
+    |>.write_flags flags |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.ADCS rd rn rm =>
     -- Xd := Xn + Xm + Carry, set flags
     let val_n := s.read_reg rn
@@ -101,9 +95,7 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
       N := result.val >= 2^63
     }
     s.write_reg rd result
-    |>.write_flags flags
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
+     |>.write_flags flags |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.SBCS rd rn rm =>
     -- Xd := Xn - Xm - ~Carry, set flags
     let val_n := s.read_reg rn
@@ -118,64 +110,56 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
       N := result.val >= 2^63
     }
     s.write_reg rd result
-    |>.write_flags flags
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
+     |>.write_flags flags
+     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.AND rd rn rm =>
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n &&& val_m
-    s.write_reg rd result
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
+    s.write_reg rd result |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.ORR rd rn rm =>
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n ||| val_m
     s.write_reg rd result
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
+     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.EOR rd rn rm =>
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n ^^^ val_m
     s.write_reg rd result
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
+     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.LSL rd rn imm =>
     let val_n := s.read_reg rn
     let result := val_n <<< imm
     s.write_reg rd result
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
+     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.LSR rd rn imm =>
     let val_n := s.read_reg rn
     let result := val_n >>> imm
     s.write_reg rd result
     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
   | Instruction.LDR rd addr =>
     match s.read_mem_word64 addr with
     | some val =>
       s.write_reg rd val
       |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
     | none => s  -- Memory fault: state unchanged
-
   | Instruction.STR rd addr =>
     let val := s.read_reg rd
     s.write_mem_word64 addr val
     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
   | Instruction.MOV rd rn =>
     let val := s.read_reg rn
     s.write_reg rd val
     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
-  | Instruction.MOVZ rd imm =>
-    let val := Word64.ofNat imm.toNat
+  | Instruction.MOVZ rd imm pos =>
+    -- MOVZ: Move wide with zero
+    -- Rd := imm * 2^pos (16-bit immediate shifted to position pos)
+    -- pos must be 0, 16, 32, or 48
+    let val := Word64.ofNat (imm * 2^pos)
     s.write_reg rd val
     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
-
   | Instruction.RET =>
     -- Return: set PC to X30 (link register)
     let return_addr := s.read_reg Reg.X30

@@ -5,7 +5,9 @@ Author: Alexandre Rademaker
 -/
 module
 
-import Bignum.Common.Memory
+public import Bignum.Common
+
+@[expose] public section
 
 /-!
 # ARM Machine State
@@ -51,6 +53,14 @@ def X8 : Reg := X 8
 def X30 : Reg := X 30  -- Link register
 
 end Reg
+
+instance : ToString Reg where
+  toString : Reg → String
+  | .X k => s!"X{k}"
+  | .PC  => "PC"
+  | .SP  => "SP"
+
+
 
 /--
 ARM condition flags.

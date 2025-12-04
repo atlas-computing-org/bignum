@@ -3,8 +3,13 @@ Copyright (c) 2025 Alexandre Rademaker. All rights reserved.
 Released under Apache 2.0 license as described in the file LICENSE.
 Author: Alexandre Rademaker
 -/
-import Bignum.Common.Basic.Defs
-import Mathlib.Data.Finset.Basic
+module
+
+public import Bignum.Common.Basic.Defs
+public import Mathlib.Data.Finset.Basic
+public import Mathlib.Data.Nat.Digits.Defs
+
+@[expose] public section
 
 /-!
 # Basic Bignum Lemmas
@@ -148,6 +153,7 @@ theorem lowdigits_of_lt (n i : Nat) (h : n < 2 ^ (64 * i)) :
   unfold lowdigits
   exact Nat.mod_eq_of_lt h
 
+
 /--
 If n is bounded by 2^(64*k), then the sum of its digits equals n.
 
@@ -162,9 +168,13 @@ Source: s2n-bignum/common/bignum.ml:19-22
 
 Note: We use Finset.sum instead of HOL Light's nsum.
 -/
-theorem bigdigitsum_works (n k : Nat) (h : n < 2 ^ (64 * k)) :
-    (Finset.range k).sum (fun i => 2 ^ (64 * i) * bigdigit n i) = n := by
-  sorry -- TODO: complete proof
+theorem bigdigitsum_works (n k : Nat) (h : n < 2 ^ (64 * k))
+ :
+   (Finset.range k).toList.foldl (init := 0)
+    (fun i => 2 ^ (64 * i) * bigdigit n i) = n := by
+  sorry
+  -- TODO: complete proof
+
 
 /--
 If a number is less than 2^(64*i), then its i-th bigdigit is 0.
