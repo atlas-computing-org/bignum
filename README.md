@@ -1,4 +1,4 @@
-# Bignum-Lean: Formal Verification of s2n-bignum in Lean 4
+# Bignum-Lean: Port of s2n-bignum to Lean 4
 
 A port of Amazon's [s2n-bignum](https://github.com/awslabs/s2n-bignum) formal verification from HOL Light to Lean 4.
 
@@ -191,13 +191,13 @@ lake build
 
 ## Key Differences from HOL Light
 
-| Aspect | HOL Light | Lean 4 |
-|--------|-----------|--------|
-| **Type System** | Simple types | Dependent types |
-| **Memory Model** | Component abstraction | Functional map `Address → Option UInt8` |
-| **Words** | `:(N)word` type | `BitVec 64` |
-| **Proof Style** | Tactical (forward/backward) | Tactic + term mode |
-| **Automation** | `WORD_RULE` for arithmetic | Need custom tactics or `omega`/`polyrith` |
+| Aspect           | HOL Light                   | Lean 4                                    |
+|------------------|-----------------------------|-------------------------------------------|
+| **Type System**  | Simple types                | Dependent types                           |
+| **Memory Model** | Component abstraction       | Functional map `Address → Option UInt8`   |
+| **Words**        | `:(N)word` type             | `BitVec 64`                               |
+| **Proof Style**  | Tactical (forward/backward) | Tactic + term mode                        |
+| **Automation**   | `WORD_RULE` for arithmetic  | Need custom tactics or `omega`/`polyrith` |
 
 ## Contributing
 
@@ -216,10 +216,3 @@ When adding new verified functions:
 - [HOL Light](https://github.com/jrh13/hol-light)
 - [Lean 4 Manual](https://lean-lang.org/lean4/doc/)
 
-## License
-
-Copyright Amazon.com, Inc. or its affiliates. All Rights Reserved.
-
-SPDX-License-Identifier: Apache-2.0
-
-This project ports work originally licensed under Apache-2.0 OR ISC OR MIT-0 (s2n-bignum).

@@ -71,6 +71,7 @@ Source: s2n-bignum/common/bignum.ml:76-77
 def lowdigits (n : Nat) (i : Nat) : Nat :=
   n % (2 ^ (64 * i))
 
+
 /--
 A bigdigit is always less than 2^64.
 
@@ -86,6 +87,7 @@ theorem bigdigit_bound (n i : Nat) : bigdigit n i < 2 ^ 64 := by
   unfold bigdigit
   apply Nat.mod_lt
   decide
+
 
 /--
 bigdigit of 0 is always 0.

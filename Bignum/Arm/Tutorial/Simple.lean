@@ -12,7 +12,8 @@ public import Bignum.Arm.Spec.Ensures
 /-!
 # Simple Example: Proving a Simple ARM Program
 
-This file is a direct port of s2n-bignum/arm/tutorial/simple.ml
+This is a line-by-line port of s2n-bignum/arm/tutorial/simple.ml with detailed
+correspondence documented.
 
 The program consists of two instructions:
 ```asm
@@ -20,17 +21,13 @@ The program consists of two instructions:
 4:   cb010042        sub     x2, x2, x1
 ```
 
-We prove that starting with X0=a and X1=b, after executing both instructions,
-we have X2=a (the additions and subtractions cancel out).
-
-## References
+We prove that starting with X0=a and X1=b, after executing both instructions, we
+have X2=a (the additions and subtractions cancel out).
 
 Source: s2n-bignum/arm/tutorial/simple.ml (complete file)
-This is a line-by-line port with detailed correspondence documented.
 -/
 
 namespace Bignum.Arm.Tutorial
-
 open Bignum Bignum.Arm
 
 /-
