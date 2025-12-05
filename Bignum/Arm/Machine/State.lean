@@ -84,6 +84,19 @@ structure ArmState where
   mem : Memory           -- Memory state
 
 /--
+Extensionality theorem for ArmState: two states are equal if all fields are
+equal.
+-/
+@[ext]
+theorem ArmState.ext {s1 s2 : ArmState}
+    (h_regs : s1.regs = s2.regs)
+    (h_flags : s1.flags = s2.flags)
+    (h_mem : s1.mem = s2.mem) :
+  s1 = s2 := by
+  cases s1; cases s2
+  congr
+
+/--
 Read a register value from the state.
 
 Corresponds to HOL Light's `read` function.
@@ -150,8 +163,8 @@ def ArmState.write_flags (s : ArmState) (f : Flags) : ArmState :=
   { s with flags := f }
 
 /--
-Convenience notation for reading registers.
-Following HOL Light convention: `read PC s` means read program counter from state s.
+Convenience notation for reading registers. Following HOL Light convention:
+`read PC s` means read program counter from state s.
 -/
 notation "read_" r:max => fun s : ArmState => ArmState.read_reg s r
 
@@ -162,5 +175,76 @@ def ArmState.init (regs : Reg → Word64) (mem : Memory) : ArmState :=
   { regs := regs
     flags := { N := false, Z := false, C := false, V := false }
     mem := mem }
+
+/-!
+## Simplification Lemmas for Register Read/Write
+
+These lemmas enable automatic simplification of register access patterns in
+proofs. They are essential for symbolic execution and proving correctness of
+instruction sequences.
+-/
+
+/--
+Reading a register immediately after writing to it returns the written value.
+-/
+@[simp]
+theorem ArmState.read_write_same (s : ArmState) (r : Reg) (v : Word64) :
+  (s.write_reg r v).read_reg r = v := by
+  unfold write_reg read_reg
+  simp
+
+/--
+Reading a different register is not affected by a write to another register.
+-/
+@[simp]
+theorem ArmState.read_write_diff (s : ArmState) (r1 r2 : Reg) (v : Word64)
+    (h : r1 ≠ r2) :
+  (s.write_reg r1 v).read_reg r2 = s.read_reg r2 := by
+  unfold write_reg read_reg
+  simp only [ite_eq_right_iff]
+  intro h_eq
+  subst h_eq
+  contradiction
+
+/--
+Writing twice to the same register: the second write overwrites the first.
+-/
+@[simp]
+theorem ArmState.write_write_same (s : ArmState) (r : Reg) (v1 v2 : Word64) :
+  (s.write_reg r v1).write_reg r v2 = s.write_reg r v2 := by
+  unfold write_reg
+  apply ArmState.ext <;> try rfl
+  · funext r'
+    by_cases h : r' = r
+    · subst h; simp
+    · simp [h]
+
+/--
+Writes to different registers commute.
+-/
+@[simp]
+theorem ArmState.write_write_comm (s : ArmState) (r1 r2 : Reg) (v1 v2 : Word64)
+    (h : r1 ≠ r2) :
+  (s.write_reg r1 v1).write_reg r2 v2 = (s.write_reg r2 v2).write_reg r1 v1 := by
+  unfold write_reg
+  apply ArmState.ext <;> try rfl
+  · funext r
+    by_cases h1 : r = r1
+    · subst h1
+      by_cases h2 : r = r2
+      · subst h2; contradiction
+      · simp [h2]
+    · by_cases h2 : r = r2
+      · subst h2; simp [h1]
+      · simp [h1, h2]
+
+/--
+Reading from initial state with explicit register function.
+-/
+@[simp]
+theorem ArmState.read_init (regs : Reg → Word64) (mem : Memory) (r : Reg) :
+  (ArmState.init regs mem).read_reg r = regs r := by
+  unfold init read_reg
+  rfl
 
 end Bignum

@@ -20,10 +20,7 @@ An `ensures` specification consists of:
 - A postcondition on the final state
 - A frame condition describing what may change
 
-## References
-
 Source: s2n-bignum/arm/tutorial/simple.ml:65-84 (SIMPLE_SPEC)
-The ensures predicate is used throughout s2n-bignum proofs.
 -/
 
 namespace Bignum
@@ -56,13 +53,9 @@ ensures arm
 Source: s2n-bignum/arm/tutorial/simple.ml:65-84
 -/
 structure Ensures where
-  /-- Precondition: predicate that must hold on initial state -/
   pre : ArmState → Prop
-  /-- Postcondition: predicate that must hold on final state -/
   post : ArmState → Prop
-  /-- Frame: predicate relating initial and final states (what may change) -/
   frame : ArmState → ArmState → Prop
-  /-- The program to execute -/
   prog : Program
 
 /--
@@ -82,14 +75,14 @@ def Ensures.satisfies (spec : Ensures) : Prop :=
 /--
 A register may change between two states.
 -/
-def maychange_reg (r : Reg) (s_init s_final : ArmState) : Prop :=
-  True  -- Register is allowed to change (no constraint)
+def maychange_reg (r : Reg) (s₁ s₂ : ArmState) : Prop :=
+  s₁.read_reg r ≠ s₂.read_reg r
 
 /--
 A register must not change between two states.
 -/
-def unchanged_reg (r : Reg) (s_init s_final : ArmState) : Prop :=
-  s_final.read_reg r = s_init.read_reg r
+def unchanged_reg (r : Reg) (s₁ s₂ : ArmState) : Prop :=
+  s₁.read_reg r = s₂.read_reg r
 
 /--
 Memory at an address may change.

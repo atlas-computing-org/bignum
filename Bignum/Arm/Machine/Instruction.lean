@@ -86,9 +86,6 @@ instance : ToString Instruction := ⟨Instruction.toString⟩
 
 /--
 A program is a sequence of instructions with a base address (PC).
-
-The simple.ml example has PC at some address `pc` and two instructions.
-Source: s2n-bignum/arm/tutorial/simple.ml:22-25
 -/
 structure Program where
   base_addr : Word64      -- Base PC address where code is loaded

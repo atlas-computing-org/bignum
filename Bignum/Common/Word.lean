@@ -24,6 +24,8 @@ Source: HOL Light's Library/words.ml
 Related: s2n-bignum/common/bignum.ml (VAL_WORD_BIGDIGIT, etc.)
 -/
 
+@[expose] public section
+
 namespace Bignum
 
 /--

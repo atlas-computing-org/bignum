@@ -13,22 +13,22 @@ bignum-lean/
 ├── Bignum/
 │   ├── Common/                  # Shared between architectures
 │   │   ├── Basic/
-│   │   │   ├── Defs.lean       # bigdigit, highdigits, lowdigits
-│   │   │   └── Lemmas.lean     # Core theorems
-│   │   ├── Word.lean           # 64-bit word arithmetic
-│   │   └── Memory.lean         # Memory model
+│   │   │   ├── Defs.lean        # bigdigit, highdigits, lowdigits
+│   │   │   └── Lemmas.lean      # Core theorems
+│   │   ├── Word.lean            # 64-bit word arithmetic
+│   │   └── Memory.lean          # Memory model
 │   │
 │   ├── Arm/                     # ARM-specific (AArch64)
 │   │   ├── Machine/
-│   │   │   ├── State.lean      # ARM state (registers, flags, memory)
+│   │   │   ├── State.lean       # ARM state (registers, flags, memory)
 │   │   │   ├── Instruction.lean # ARM instruction types
-│   │   │   └── Semantics.lean  # Operational semantics
+│   │   │   └── Semantics.lean   # Operational semantics
 │   │   ├── Spec/
-│   │   │   └── Ensures.lean    # Pre/post/frame specifications
-│   │   ├── Generic/            # Generic bignum operations (future)
-│   │   ├── Curve/              # Elliptic curve operations (future)
+│   │   │   └── Ensures.lean     # Pre/post/frame specifications
+│   │   ├── Generic/             # Generic bignum operations (future)
+│   │   ├── Curve/               # Elliptic curve operations (future)
 │   │   └── Tutorial/
-│   │       └── Simple.lean     # Port of arm/tutorial/simple.ml
+│   │       └── Simple.lean      # Port of arm/tutorial/simple.ml
 │   │
 │   └── X86/                     # x86-64-specific (future)
 │       ├── Machine/
@@ -39,24 +39,6 @@ bignum-lean/
 │
 └── s2n-bignum/                  # Original HOL Light source (submodule)
 ```
-
-## Current Status
-
-### ✅ Phase 0: Foundations (COMPLETED)
-
-- [x] Basic bignum definitions (`bigdigit`, `highdigits`, `lowdigits`)
-- [x] Fundamental theorems (decomposition, bounds, sums)
-- [x] 64-bit word arithmetic with carry/borrow
-- [x] Memory model (read/write, bignums, alignment)
-- [x] ARM state model (registers, flags, memory)
-- [x] ARM instruction types (ADD, SUB, ADCS, etc.)
-- [x] Operational semantics (instruction execution)
-- [x] Specification system (`ensures` with pre/post/frame)
-- [x] Tutorial example (port of `s2n-bignum/arm/tutorial/simple.ml`)
-
-### 🚧 Next Steps
-
-See [Development Plan](#development-plan) below.
 
 ## Correspondence with s2n-bignum
 
@@ -101,6 +83,21 @@ lake build
 ```
 
 ## Development Plan
+
+### 🚧 Phase 0: Foundations (3-4 weeks)
+
+**Goal:** translate the simple.ml tutorial having the basics in Lean
+
+**Tasks:**
+- [x] Basic bignum definitions (`bigdigit`, `highdigits`, `lowdigits`)
+- [x] Fundamental theorems (decomposition, bounds, sums)
+- [x] 64-bit word arithmetic with carry/borrow
+- [x] Memory model (read/write, bignums, alignment)
+- [x] ARM state model (registers, flags, memory)
+- [x] ARM instruction types (ADD, SUB, ADCS, etc.)
+- [x] Operational semantics (instruction execution)
+- [x] Specification system (`ensures` with pre/post/frame)
+- [ ] Tutorial example (port of `s2n-bignum/arm/tutorial/simple.ml`)
 
 ### Phase 1: ARM Machine Model (3-4 weeks)
 

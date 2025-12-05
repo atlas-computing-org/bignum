@@ -116,7 +116,7 @@ theorem lowdigits_succ (n i : Nat) :
   rw [Nat.pow_add]
   -- MOD_MULT_MOD: properties of modular arithmetic
   -- This requires lemmas about (a + b*c) % (c*d) that aren't trivial
-  sorry  -- TODO: needs modular arithmetic lemmas
+  sorry
 
 /--
 highdigits equals 0 iff n is bounded.
@@ -187,7 +187,7 @@ theorem bigdigitsum_works (n k : Nat) (h : n < 2 ^ (64 * k))
  : (Finset.range k).toList.foldl (init := 0)
    (fun i => 2 ^ (64 * i) * bigdigit n i) = n := by
   sorry
-  -- TODO: complete proof
+
 
 
 /--
@@ -204,6 +204,6 @@ Source: s2n-bignum/common/bignum.ml:37-39
 theorem bigdigit_of_lt (n i : Nat) (h : n < 2 ^ (64 * i)) :
     bigdigit n i = 0 := by
   unfold bigdigit
-  sorry -- TODO: complete proof
+  sorry
 
 end Bignum
