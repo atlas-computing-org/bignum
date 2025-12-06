@@ -60,8 +60,8 @@ Instruction encodings:
 
 Source: s2n-bignum/arm/tutorial/simple.ml:28-32
 -/
-def simple_program : Program := {
-  base_addr := Word64.ofNat 0
+def simple_program (pc : Nat) : Program := {
+  base_addr := Word64.ofNat pc
   instructions := [
     Instruction.ADD Reg.X2 Reg.X1 Reg.X0,
     Instruction.SUB Reg.X2 Reg.X2 Reg.X1
@@ -122,7 +122,7 @@ def simple_spec (pc a b : ℕ) : Ensures := {
     s.read_reg Reg.X2 = Word64.ofNat a
 
   frame := maychange_regs [Reg.PC, Reg.X2]
-  prog := simple_program
+  prog := simple_program pc
 }
 
 
@@ -146,7 +146,7 @@ The word arithmetic wraps modulo 2^64, so we need to prove:
 
  (a + b) % 2^64 - b % 2^64 = a % 2^64 (when a, b < 2^64)
 
-The core correctness lemma: executing the simple program satisfies the
+Executing the simple program satisfies the
 specification. This corresponds to the entire SIMPLE_SPEC theorem in HOL Light.
 
 **Proof outline:**
@@ -159,97 +159,53 @@ specification. This corresponds to the entire SIMPLE_SPEC theorem in HOL Light.
 Source: s2n-bignum/arm/tutorial/simple.ml:65-101
 -/
 theorem simple_correct (pc a b : ℕ)
-  (h_pc_bound : pc < 2 ^ 64)
-  (h_a_bound : a < 2 ^ 64)
-  (h_b_bound : b < 2 ^ 64)
-  (h_sum_bound : a + b < 2 ^ 64)
-  :  (simple_spec pc a b).satisfies := by
+  : (simple_spec pc a b).satisfies := by
   unfold Ensures.satisfies simple_spec
+  simp only
   intro s_init h_pre
   obtain ⟨h_pc, h_x0, h_x1, h_align⟩ := h_pre
-  simp only
-
-  -- Execute the program: exec_program checks PC and runs instructions
-  unfold exec_program simple_program
-  split
-  · -- Case 1: PC matches base_addr, program executes
-    -- Expand exec: [ADD, SUB].foldl step s_init = step SUB (step ADD s_init)
-    unfold exec
+  -- PC matches base_addr, program executes
+  have h : s_init.read_reg Reg.PC = (simple_program pc).base_addr := by
+   unfold simple_program
+   simp [h_pc]
+  repeat apply And.intro
+  · -- PC advances by 8 bytes (4 + 4)
+    unfold exec_program ; split_ifs
+    unfold exec simple_program
     simp only [List.foldl]
-    -- Expand step for both instructions
     unfold step
-
-    -- Now prove: postcondition ∧ frame
-    constructor
-    · -- Postcondition: PC = pc + 8 ∧ X2 = a
-      constructor
-
-      -- PC advances by 8 bytes (4 + 4)
-      · simp only [ArmState.read_write_same,
-          ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X2)]
-        rw [h_pc]
-        rw [BitVec.add_assoc]
-        unfold Word64.ofNat
-        rw [← BitVec.ofNat_add_ofNat]
-        simp
-
-      -- X2 contains a (the arithmetic (a + b) - b = a)
-      · simp only [ArmState.read_write_same]
-        rw [h_x0, h_x1]
-        -- Goal: (Word64.ofNat b + Word64.ofNat a) - Word64.ofNat b = Word64.ofNat a
-        sorry  -- BitVec arithmetic: (a + b) - b = a when a + b < 2^64
-
-    · -- Frame: only PC and X2 may change
-      unfold maychange_regs unchanged_reg
-      intro r h_not_changed
-      -- r is not in [PC, X2]
-      simp only [List.mem_cons] at h_not_changed
-      push_neg at h_not_changed
-      obtain ⟨h_r_ne_pc, h_r_ne_x2, _⟩ := h_not_changed
-
-      -- Show r is unchanged through both instructions
-      -- After ADD: write PC then X2, read r (which is neither)
-      -- After SUB: write PC then X2, read r (which is neither)
-      simp only [ArmState.read_write_diff _ _ _ _ (Ne.symm h_r_ne_x2),
-                 ArmState.read_write_diff _ _ _ _ (Ne.symm h_r_ne_pc)]
-
-  · -- Case 2: PC doesn't match (contradiction with precondition)
-    -- exec_program returns s_init unchanged when PC doesn't match
-    -- But our precondition says s_init.read_reg Reg.PC = Word64.ofNat pc
-    -- And simple_program.base_addr = Word64.ofNat 0
-    -- So this branch is impossible when pc = 0, or provable otherwise
-    sorry
-
-/-
-Note on the proof:
-
-**Simplified proof structure using read/write lemmas:**
-
-The proof now uses the @[simp] lemmas from State.lean:
-- `ArmState.read_write_same`: Reading after writing to same register
-- `ArmState.read_write_diff`: Reading after writing to different register
-
-This eliminates the manual state manipulation that was previously required.
-
-**Remaining sorry placeholders:**
-
-1. **BitVec addition with constants** (line 190):
-   `Word64.ofNat pc + 4 + 4 = Word64.ofNat (pc + 8)`
-   Need: BitVec.add_assoc and conversion lemmas
-
-2. **BitVec arithmetic cancellation** (line 202):
-   `(Word64.ofNat b + Word64.ofNat a) - Word64.ofNat b = Word64.ofNat a`
-   Need: BitVec subtraction cancellation when no overflow
-
-**Comparison with HOL Light:**
-
-HOL Light uses `CONV_TAC WORD_RULE` which automatically solves word arithmetic.
-In Lean, we need explicit BitVec arithmetic lemmas from Mathlib or a custom library.
-
-The proof structure is now much cleaner and closely mirrors the HOL Light approach:
-1. Unfold program execution (like ARM_STEPS_TAC)
-2. Apply simplification lemmas (like ASM_REWRITE_TAC)
-3. Solve arithmetic (would use BitVec tactics instead of WORD_RULE)
--/
+    simp only [BitVec.ofNat_eq_ofNat, ArmState.read_write_same]
+    rw [h_pc]
+    rw [BitVec.add_assoc]
+    unfold Word64.ofNat
+    rw [← BitVec.ofNat_add_ofNat]
+    simp
+  · -- X2 contains a (the arithmetic (a + b) - b = a)
+    unfold exec_program ; split_ifs
+    unfold exec simple_program
+    simp only [List.foldl]
+    unfold step
+    simp only [BitVec.ofNat_eq_ofNat, ArmState.read_write_same]
+    simp only [
+     ArmState.read_write_same,
+     ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X2),
+     ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X1),
+     ArmState.read_write_diff _ _ _ _ (by decide : Reg.X2 ≠ Reg.X1)
+    ]
+    rw [h_x0, h_x1]
+    rw [BitVec.add_sub_comm, BitVec.add_comm, BitVec.sub_self, BitVec.add_zero]
+  · unfold maychange_regs unchanged_reg
+    intro r h_not_changed
+    simp only [List.mem_cons] at h_not_changed
+    push_neg at h_not_changed
+    obtain ⟨h_r_ne_pc, h_r_ne_x2, h₁⟩ := h_not_changed
+    clear h₁
+    unfold exec_program ; split_ifs
+    unfold exec simple_program
+    simp only [List.foldl] ; unfold step ; simp
+    simp only [
+     ArmState.read_write_diff _ _ _ _ (Ne.symm h_r_ne_x2),
+     ArmState.read_write_diff _ _ _ _ (Ne.symm h_r_ne_pc)
+    ]
 
 end Bignum.Arm.Tutorial

@@ -88,7 +88,7 @@ instance : ToString Instruction := ⟨Instruction.toString⟩
 A program is a sequence of instructions with a base address (PC).
 -/
 structure Program where
-  base_addr : Word64      -- Base PC address where code is loaded
+  base_addr : Word64
   instructions : List Instruction
   deriving Repr
 

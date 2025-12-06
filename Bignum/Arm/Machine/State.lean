@@ -33,7 +33,7 @@ namespace Bignum
 ARM general-purpose registers and special registers.
 -/
 inductive Reg
-  | X : Fin 31 → Reg  -- X0 through X30
+  | X : Fin 31 → Reg   -- X0 through X30
   | PC : Reg           -- Program counter
   | SP : Reg           -- Stack pointer
   deriving DecidableEq, Repr

@@ -114,8 +114,11 @@ def maychange_regs (regs : List Reg) (s_init s_final : ArmState) : Prop :=
 /--
 Flags may change.
 -/
-def maychange_flags (s_init s_final : ArmState) : Prop :=
-  True  -- Flags are allowed to change
+def maychange_flags (s₁ s₂ : ArmState) : Prop :=
+  s₁.flags.N ≠ s₂.flags.N ∨
+  s₁.flags.Z ≠ s₂.flags.Z ∨
+  s₁.flags.C ≠ s₂.flags.C ∨
+  s₁.flags.V ≠ s₂.flags.V
 
 /--
 Combine frame conditions.
