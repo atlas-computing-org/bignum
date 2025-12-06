@@ -84,7 +84,7 @@ lake build
 
 ## Development Plan
 
-### 🚧 Phase 0: Foundations (3-4 weeks)
+### ✅ Phase 0: Foundations (3-4 weeks)
 
 **Goal:** translate the simple.ml tutorial having the basics in Lean
 
@@ -97,7 +97,7 @@ lake build
 - [x] ARM instruction types (ADD, SUB, ADCS, etc.)
 - [x] Operational semantics (instruction execution)
 - [x] Specification system (`ensures` with pre/post/frame)
-- [ ] Tutorial example (port of `s2n-bignum/arm/tutorial/simple.ml`)
+- [x] Tutorial example (port of `s2n-bignum/arm/tutorial/simple.ml`)
 
 ### Phase 1: ARM Machine Model (3-4 weeks)
 

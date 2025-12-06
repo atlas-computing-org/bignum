@@ -172,9 +172,8 @@ theorem simple_correct (pc a b : ℕ)
   · -- PC advances by 8 bytes (4 + 4)
     unfold exec_program ; split_ifs
     unfold exec simple_program
-    simp only [List.foldl]
-    unfold step
-    simp only [BitVec.ofNat_eq_ofNat, ArmState.read_write_same]
+    simp only [List.foldl] ; repeat rw [step]
+    simp only [ArmState.read_write_same]
     rw [h_pc]
     rw [BitVec.add_assoc]
     unfold Word64.ofNat
@@ -183,9 +182,7 @@ theorem simple_correct (pc a b : ℕ)
   · -- X2 contains a (the arithmetic (a + b) - b = a)
     unfold exec_program ; split_ifs
     unfold exec simple_program
-    simp only [List.foldl]
-    unfold step
-    simp only [BitVec.ofNat_eq_ofNat, ArmState.read_write_same]
+    simp only [List.foldl] ; repeat rw [step]
     simp only [
      ArmState.read_write_same,
      ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X2),
@@ -194,7 +191,8 @@ theorem simple_correct (pc a b : ℕ)
     ]
     rw [h_x0, h_x1]
     rw [BitVec.add_sub_comm, BitVec.add_comm, BitVec.sub_self, BitVec.add_zero]
-  · unfold maychange_regs unchanged_reg
+  · -- only X2 and PC changed
+    unfold maychange_regs unchanged_reg
     intro r h_not_changed
     simp only [List.mem_cons] at h_not_changed
     push_neg at h_not_changed
@@ -202,7 +200,7 @@ theorem simple_correct (pc a b : ℕ)
     clear h₁
     unfold exec_program ; split_ifs
     unfold exec simple_program
-    simp only [List.foldl] ; unfold step ; simp
+    simp only [List.foldl] ; repeat rw [step]
     simp only [
      ArmState.read_write_diff _ _ _ _ (Ne.symm h_r_ne_x2),
      ArmState.read_write_diff _ _ _ _ (Ne.symm h_r_ne_pc)
