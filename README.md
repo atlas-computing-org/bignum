@@ -1,10 +1,15 @@
 # Bignum-Lean: Port of s2n-bignum to Lean 4
 
-A port of Amazon's [s2n-bignum](https://github.com/awslabs/s2n-bignum) formal verification from HOL Light to Lean 4.
+A port of Amazon's [s2n-bignum](https://github.com/awslabs/s2n-bignum)
+formal verification from HOL Light to Lean 4.
 
 ## Overview
 
-This project aims to port the formally verified cryptographic arithmetic library s2n-bignum from HOL Light to Lean 4. The s2n-bignum library provides high-performance, constant-time implementations of big integer arithmetic operations used in cryptography, with machine-checked proofs of correctness.
+This project aims to port the formally verified cryptographic
+arithmetic library s2n-bignum from HOL Light to Lean 4. The s2n-bignum
+library provides high-performance, constant-time implementations of
+big integer arithmetic operations used in cryptography, with
+machine-checked proofs of correctness.
 
 ## Project Structure
 
@@ -84,7 +89,7 @@ lake build
 
 ## Development Plan
 
-### ✅ Phase 0: Foundations (3-4 weeks)
+### ✅ Phase 0: Foundations (1-2 weeks)
 
 **Goal:** translate the simple.ml tutorial having the basics in Lean
 
@@ -97,23 +102,23 @@ lake build
 - [x] ARM instruction types (ADD, SUB, ADCS, etc.)
 - [x] Operational semantics (instruction execution)
 - [x] Specification system (`ensures` with pre/post/frame)
-- [x] Tutorial example (port of `s2n-bignum/arm/tutorial/simple.ml`)
+- [x] Complete tutorial `arm/tutorial/simple.ml`
 
-### Phase 1: ARM Machine Model (3-4 weeks)
+
+### 🚧 Phase 1: ARM initial Machine Model (3-4 weeks)
 
 **Goal:** Complete executable ARM model with full instruction set
 
 **Tasks:**
-1. Expand instruction coverage (memory ops, branches, conditional execution)
-2. Implement symbolic execution tactics
-3. Develop automation for common proof patterns
-4. Validate against s2n-bignum test cases
+1. Implement the decode function 
+2. Implement the parser of `.o` files
+3. Expand instruction coverage (memory ops, branches, conditional execution)
+4. Implement symbolic execution tactics
+5. Develop automation for common proof patterns
+6. Validate against `arm/tutorial/sequence.ml` tutorial
 
-**Deliverable:** Fully functional ARM simulator in Lean
 
----
-
-### Phase 2: First Real Function - `bignum_add` (3-4 weeks)
+### Phase 2: ARM Decode (3-4 weeks)
 
 **Goal:** Complete formal verification of `bignum_add`
 
@@ -131,7 +136,6 @@ lake build
 
 **Deliverable:** `Bignum/Arm/Generic/Add.lean` with complete proof
 
----
 
 ### Phase 3: Basic Arithmetic Operations (4-6 weeks)
 
@@ -146,7 +150,6 @@ lake build
 
 **Deliverable:** ~10-15 verified functions
 
----
 
 ### Phase 4: Modular Arithmetic (4-6 weeks)
 
@@ -163,7 +166,6 @@ lake build
 
 **Deliverable:** Complete modular arithmetic library
 
----
 
 ### Phase 5: Elliptic Curves (6-12 weeks, optional)
 
@@ -176,7 +178,6 @@ lake build
 
 **Note:** This phase is ambitious and may require significant effort.
 
----
 
 ## Design Principles
 
