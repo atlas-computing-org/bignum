@@ -89,13 +89,13 @@ lake build
 
 ## Development Plan
 
-### ✅ Phase 0: Foundations (1-2 weeks)
+### ✅ Phase 0: Foundations (Complete)
 
 **Goal:** translate the simple.ml tutorial having the basics in Lean
 
 **Tasks:**
 - [x] Basic bignum definitions (`bigdigit`, `highdigits`, `lowdigits`)
-- [x] Fundamental theorems (decomposition, bounds, sums)
+- [x] Fundamental theorems (decomposition, bounds, sums) - **23 theorems, 17 proved**
 - [x] 64-bit word arithmetic with carry/borrow
 - [x] Memory model (read/write, bignums, alignment)
 - [x] ARM state model (registers, flags, memory)
@@ -103,6 +103,12 @@ lake build
 - [x] Operational semantics (instruction execution)
 - [x] Specification system (`ensures` with pre/post/frame)
 - [x] Complete tutorial `arm/tutorial/simple.ml`
+
+**Recent Progress:**
+- ✅ Proved `lowdigits_succ` with helper lemma `mod_mul_add_mod`
+- ✅ Proved `lowdigits_one` using `lowdigits_succ`
+- ✅ Added 12 new theorems (4 high-priority, 8 medium-priority)
+- 📊 **Status:** 17/23 theorems complete (74%)
 
 
 ### 🚧 Phase 1: ARM initial Machine Model (3-4 weeks)
