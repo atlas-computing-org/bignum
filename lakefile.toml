@@ -14,6 +14,10 @@ experimental.module = true
 name = "mathlib"
 scope = "leanprover-community"
 
+[[require]]
+name = "cslib"
+scope = "leanprover"
+
 [[lean_lib]]
 name = "Bignum"
 
