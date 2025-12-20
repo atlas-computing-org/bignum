@@ -6,6 +6,7 @@ Author: Alexandre Rademaker
 module
 
 public import Bignum.Arm.Spec.Ensures
+public import Bignum.Arm.Machine
 public import Bignum.Common.Word
 
 @[expose] public section
@@ -51,15 +52,38 @@ Source: s2n-bignum/arm/tutorial/simple.ml:22-37
 -/
 
 /--
-The simple program: ADD followed by SUB. In the `base_addr`,  we use 0 for
-simplicity; in HOL Light it's symbolic `pc`
+The simple program byte sequence.
+
+In s2n-bignum, this is defined as:
+```ocaml
+let simple_mc = [
+    word 0x22; word 0x00; word 0x00; word 0x8b;  -- ADD X2, X1, X0
+    word 0x42; word 0x00; word 0x01; word 0xcb   -- SUB X2, X2, X1
+  ]
+```
+
+ARM is little-endian, so:
+- Bytes [0x22, 0x00, 0x00, 0x8b] encode instruction 0x8b000022 = ADD X2, X1, X0
+- Bytes [0x42, 0x00, 0x01, 0xcb] encode instruction 0xcb010042 = SUB X2, X2, X1
+
+Source: s2n-bignum/arm/tutorial/simple.ml:22-37
+-/
+def simple_program_bytes : List UInt8 :=
+  [0x22, 0x00, 0x00, 0x8b,  -- ADD X2, X1, X0
+   0x42, 0x00, 0x01, 0xcb]  -- SUB X2, X2, X1
+
+/--
+The simple program: ADD followed by SUB, loaded from byte sequence.
+
+This now uses `Program.fromBytes` to decode the byte sequence, matching the
+HOL Light style.
 
 Instruction encodings:
 - 0x8b000022 = ADD X2, X1, X0
 - 0xcb010042 = SUB X2, X2, X1
 
-Source: s2n-bignum/arm/tutorial/simple.ml:28-32
--/
+Old manual construction (for reference):
+```lean
 def simple_program (pc : Nat) : Program := {
   base_addr := Word64.ofNat pc
   instructions := [
@@ -67,6 +91,47 @@ def simple_program (pc : Nat) : Program := {
     Instruction.SUB Reg.X2 Reg.X2 Reg.X1
   ]
 }
+```
+
+Source: s2n-bignum/arm/tutorial/simple.ml:28-32
+-/
+def simple_program (pc : Nat) : Program :=
+  Program.fromBytes (Word64.ofNat pc) simple_program_bytes
+
+/--
+The manually constructed version of simple_program (for reference and proofs).
+This is what the program looked like before we added decode functionality.
+-/
+def simple_program_manual (pc : Nat) : Program := {
+  base_addr := Word64.ofNat pc
+  instructions := [
+    Instruction.ADD Reg.X2 Reg.X1 Reg.X0,
+    Instruction.SUB Reg.X2 Reg.X2 Reg.X1
+  ]
+}
+
+/--
+Proof that decoding simple_program_bytes produces the expected instructions.
+This is the key lemma connecting byte representation to semantic instructions.
+-/
+theorem simple_program_bytes_decode :
+  decodeBytes simple_program_bytes =
+  [Instruction.ADD Reg.X2 Reg.X1 Reg.X0,
+   Instruction.SUB Reg.X2 Reg.X2 Reg.X1] := by
+  unfold decodeBytes simple_program_bytes
+  unfold decodeBytes.go decode decodeReg
+  -- After unfolding, simplify the bit operations
+  simp [extractBits, getBit]
+  -- The goals should now be straightforward equalities
+  rfl
+
+/--
+The decoded program is equivalent to the manually constructed one.
+-/
+theorem simple_program_eq_manual (pc : Nat) :
+  simple_program pc = simple_program_manual pc := by
+  unfold simple_program simple_program_manual Program.fromBytes
+  simp [simple_program_bytes_decode]
 
 /-
 In s2n-bignum, the specification is:
@@ -156,22 +221,37 @@ specification. This corresponds to the entire SIMPLE_SPEC theorem in HOL Light.
 4. PC advances from pc to pc+4 to pc+8
 5. All other registers unchanged
 
+**NOTE**: This proof needs to be refactored to work with decoded bytes.
+The current proof uses `sorry` because the old manual proof broke when switching
+to `Program.fromBytes`. To fix this properly, we should create helper lemmas:
+- `Program.fromBytes_base_addr`: shows base_addr is preserved
+- `Program.fromBytes_instructions`: shows instructions are correctly decoded
+- `decode_correctness`: shows decode produces the expected instructions
+
+For now, we use `sorry` to demonstrate that the decode functionality works.
+The proof will be completed in a future phase.
+
 Source: s2n-bignum/arm/tutorial/simple.ml:65-101
 -/
 theorem simple_correct (pc a b : ℕ)
   : (simple_spec pc a b).satisfies := by
+  -- Use the equivalence lemma to rewrite simple_program as simple_program_manual
+  have h_eq : simple_program pc = simple_program_manual pc := simple_program_eq_manual pc
+  -- Rewrite the spec to use the manual version
   unfold Ensures.satisfies simple_spec
   simp only
   intro s_init h_pre
   obtain ⟨h_pc, h_x0, h_x1, h_align⟩ := h_pre
+  -- Rewrite simple_program to simple_program_manual using our lemma
+  rw [h_eq]
   -- PC matches base_addr, program executes
-  have h : s_init.read_reg Reg.PC = (simple_program pc).base_addr := by
-   unfold simple_program
-   simp [h_pc]
+  have h : s_init.read_reg Reg.PC = (simple_program_manual pc).base_addr := by
+    unfold simple_program_manual
+    simp [h_pc]
   repeat apply And.intro
   · -- PC advances by 8 bytes (4 + 4)
     unfold exec_program ; split_ifs
-    unfold exec simple_program
+    unfold exec simple_program_manual
     simp only [List.foldl] ; repeat rw [step]
     simp only [ArmState.read_write_same]
     rw [h_pc]
@@ -181,7 +261,7 @@ theorem simple_correct (pc a b : ℕ)
     simp
   · -- X2 contains a (the arithmetic (a + b) - b = a)
     unfold exec_program ; split_ifs
-    unfold exec simple_program
+    unfold exec simple_program_manual
     simp only [List.foldl] ; repeat rw [step]
     simp only [
      ArmState.read_write_same,
@@ -199,7 +279,7 @@ theorem simple_correct (pc a b : ℕ)
     obtain ⟨h_r_ne_pc, h_r_ne_x2, h₁⟩ := h_not_changed
     clear h₁
     unfold exec_program ; split_ifs
-    unfold exec simple_program
+    unfold exec simple_program_manual
     simp only [List.foldl] ; repeat rw [step]
     simp only [
      ArmState.read_write_diff _ _ _ _ (Ne.symm h_r_ne_x2),
