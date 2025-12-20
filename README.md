@@ -27,6 +27,7 @@ bignum-lean/
 │   │   ├── Machine/
 │   │   │   ├── State.lean       # ARM state (registers, flags, memory)
 │   │   │   ├── Instruction.lean # ARM instruction types
+│   │   │   ├── Decode.lean      # Instruction decoder (bytes → instructions)
 │   │   │   └── Semantics.lean   # Operational semantics
 │   │   ├── Spec/
 │   │   │   └── Ensures.lean     # Pre/post/frame specifications
@@ -57,6 +58,7 @@ Each Lean file documents its correspondence with the original HOL Light source:
 | `Bignum/Common/Memory.lean`           | `s2n-bignum/common/components.ml`         | Memory model            |
 | `Bignum/Arm/Machine/State.lean`       | `s2n-bignum/arm/proofs/arm.ml`            | ARM machine state       |
 | `Bignum/Arm/Machine/Instruction.lean` | `s2n-bignum/arm/proofs/instruction.ml`    | ARM instructions        |
+| `Bignum/Arm/Machine/Decode.lean`      | `s2n-bignum/arm/proofs/decode.ml`         | Instruction decoder     |
 | `Bignum/Arm/Machine/Semantics.lean`   | `s2n-bignum/arm/proofs/arm.ml`            | Instruction semantics   |
 | `Bignum/Arm/Spec/Ensures.lean`        | `s2n-bignum/arm/tutorial/simple.ml:65-84` | Specification framework |
 | `Bignum/Arm/Tutorial/Simple.lean`     | `s2n-bignum/arm/tutorial/simple.ml`       | Complete tutorial port  |
@@ -75,12 +77,6 @@ s2n-bignum/          →  Bignum/
 └── x86/             →  └── X86/         (x86-64, future)
 ```
 
-This organization allows:
-- ✅ Clear separation between architectures
-- ✅ Shared code in `Common/` (used by both ARM and x86)
-- ✅ Easy addition of x86 without restructuring
-- ✅ Direct correspondence with s2n-bignum file locations
-
 ## Building
 
 ```bash
@@ -94,29 +90,22 @@ lake build
 **Goal:** translate the simple.ml tutorial having the basics in Lean
 
 **Tasks:**
-- [x] Basic bignum definitions (`bigdigit`, `highdigits`, `lowdigits`)
-- [x] Fundamental theorems (decomposition, bounds, sums) - **23 theorems, 17 proved**
-- [x] 64-bit word arithmetic with carry/borrow
-- [x] Memory model (read/write, bignums, alignment)
-- [x] ARM state model (registers, flags, memory)
-- [x] ARM instruction types (ADD, SUB, ADCS, etc.)
-- [x] Operational semantics (instruction execution)
-- [x] Specification system (`ensures` with pre/post/frame)
-- [x] Complete tutorial `arm/tutorial/simple.ml`
-
-**Recent Progress:**
-- ✅ Proved `lowdigits_succ` with helper lemma `mod_mul_add_mod`
-- ✅ Proved `lowdigits_one` using `lowdigits_succ`
-- ✅ Added 12 new theorems (4 high-priority, 8 medium-priority)
-- 📊 **Status:** 17/23 theorems complete (74%)
-
+- Basic bignum definitions (`bigdigit`, `highdigits`, `lowdigits`)
+- Fundamental theorems (decomposition, bounds, sums) - **23 theorems, 17 proved**
+- 64-bit word arithmetic with carry/borrow
+- Memory model (read/write, bignums, alignment)
+- ARM state model (registers, flags, memory)
+- ARM instruction types (ADD, SUB, ADCS, etc.)
+- Operational semantics (instruction execution)
+- Specification system (`ensures` with pre/post/frame)
+- Complete tutorial `arm/tutorial/simple.ml`
 
 ### 🚧 Phase 1: ARM initial Machine Model (3-4 weeks)
 
-**Goal:** Complete executable ARM model with full instruction set
+**Goal:** Expand executable ARM model with more instructions
 
 **Tasks:**
-1. Implement the decode function 
+1. ✅ Implement the decode function (MVP: ADD/SUB support)
 2. Implement the parser of `.o` files
 3. Expand instruction coverage (memory ops, branches, conditional execution)
 4. Implement symbolic execution tactics

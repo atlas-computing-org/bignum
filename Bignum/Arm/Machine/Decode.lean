@@ -28,11 +28,6 @@ s2n-bignum.
 * `decodeBytes` - Decode a byte list (little-endian) into instruction list
 * `Program.fromBytes` - Create a Program from byte sequence
 
-## Known Encodings (from Simple.lean)
-
-* `0x8b000022` = ADD X2, X1, X0
-* `0xcb010042` = SUB X2, X2, X1
-
 ## References
 
 Source: s2n-bignum/arm/proofs/decode.ml (HOL Light decode implementation)
