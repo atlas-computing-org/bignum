@@ -33,8 +33,7 @@ bignum-lean/
 │   │   │   └── Ensures.lean     # Pre/post/frame specifications
 │   │   ├── Generic/             # Generic bignum operations (future)
 │   │   ├── Curve/               # Elliptic curve operations (future)
-│   │   └── Tutorial/
-│   │       └── Simple.lean      # Port of arm/tutorial/simple.ml
+│   │   └── Tutorial/            # Port of arm tutorials
 │   │
 │   └── X86/                     # x86-64-specific (future)
 │       ├── Machine/
@@ -50,6 +49,8 @@ bignum-lean/
 
 Each Lean file documents its correspondence with the original HOL Light source:
 
+### Core Infrastructure
+
 | Lean File                             | HOL Light Source                          | Description             |
 |---------------------------------------|-------------------------------------------|-------------------------|
 | `Bignum/Common/Basic/Defs.lean`       | `s2n-bignum/common/bignum.ml:11-77`       | Core bignum definitions |
@@ -61,7 +62,7 @@ Each Lean file documents its correspondence with the original HOL Light source:
 | `Bignum/Arm/Machine/Decode.lean`      | `s2n-bignum/arm/proofs/decode.ml`         | Instruction decoder     |
 | `Bignum/Arm/Machine/Semantics.lean`   | `s2n-bignum/arm/proofs/arm.ml`            | Instruction semantics   |
 | `Bignum/Arm/Spec/Ensures.lean`        | `s2n-bignum/arm/tutorial/simple.ml:65-84` | Specification framework |
-| `Bignum/Arm/Tutorial/Simple.lean`     | `s2n-bignum/arm/tutorial/simple.ml`       | Complete tutorial port  |
+
 
 ## Architecture Organization
 
@@ -85,93 +86,170 @@ lake build
 
 ## Development Plan
 
+The development plan follows the s2n-bignum tutorial progression. Each phase implements one tutorial, incrementally building the verification infrastructure. After completing all ARM tutorials, we'll expand to x86-64.
+
 ### ✅ Phase 0: Foundations (Complete)
 
-**Goal:** translate the simple.ml tutorial having the basics in Lean
+**Goal:** Verify a simple 2-instruction linear program
 
-**Tasks:**
-- Basic bignum definitions (`bigdigit`, `highdigits`, `lowdigits`)
-- Fundamental theorems (decomposition, bounds, sums) - **23 theorems, 17 proved**
-- 64-bit word arithmetic with carry/borrow
-- Memory model (read/write, bignums, alignment)
+**What we built:**
+- Core bignum definitions (bigdigit, highdigits, lowdigits)
 - ARM state model (registers, flags, memory)
-- ARM instruction types (ADD, SUB, ADCS, etc.)
+- Basic instructions (ADD, SUB, ADCS)
 - Operational semantics (instruction execution)
-- Specification system (`ensures` with pre/post/frame)
-- Complete tutorial `arm/tutorial/simple.ml`
+- Specification framework (`ensures` with pre/post/frame)
+- Instruction decoder (bytes → instructions)
 
-### 🚧 Phase 1: ARM initial Machine Model (3-4 weeks)
+**Deliverable:** `Bignum/Arm/Tutorial/Simple.lean`
 
-**Goal:** Expand executable ARM model with more instructions
+### 🚧 Phase 1: Program Composition
 
-**Tasks:**
-1. ✅ Implement the decode function (MVP: ADD/SUB support)
-2. Implement the parser of `.o` files
-3. Expand instruction coverage (memory ops, branches, conditional execution)
-4. Implement symbolic execution tactics
-5. Develop automation for common proof patterns
-6. Validate against `arm/tutorial/sequence.ml` tutorial
+**Goal:** Verify programs by splitting into sequential chunks with intermediate assertions
 
+**New capabilities needed:**
+- Instructions: `MOV`, `MUL`
+- Tactic: `ENSURES_SEQUENCE_TAC` (split program with intermediate state)
+- .o file parser: `define_assert_from_elf` (extract bytecode from ELF)
 
-### Phase 2: ARM Decode (3-4 weeks)
-
-**Goal:** Complete formal verification of `bignum_add`
-
-**Why `bignum_add`?**
-- Fundamental operation (used by all others)
-- Relatively simple (only additions with carry)
-- Tests all components: loops, branches, memory, carry propagation
-- HOL Light proof is ~800 lines (manageable size)
-
-**Tasks:**
-1. Write formal specification matching `s2n-bignum/arm/proofs/bignum_add.ml:82-100`
-2. Translate assembly code to instruction list
-3. Prove correctness using symbolic execution
-4. Extract reusable proof patterns
-
-**Deliverable:** `Bignum/Arm/Generic/Add.lean` with complete proof
+**Deliverable:** `Bignum/Arm/Tutorial/Sequence.lean`
 
 
-### Phase 3: Basic Arithmetic Operations (4-6 weeks)
+### Phase 2: Conditional Branching
 
-**Goal:** Build library of verified basic operations
+**Goal:** Verify programs with conditional branches
 
-**Priority Functions:**
-1. `bignum_sub` (subtraction with borrow)
-2. `bignum_eq`, `bignum_lt`, `bignum_le` (comparisons)
-3. `bignum_shl_small`, `bignum_shr_small` (shifts)
-4. `bignum_mul` (multiplication - more complex)
-5. `word_clz`, `word_max`, `word_min` (word operations)
+**New capabilities needed:**
+- Instructions: `CMP` (comparison with flags), `B.HI` (conditional branch), `RET`
+- Flag reasoning: `SOME_FLAGS`, condition codes (ZF, CF, NF, VF)
+- Case analysis: branch taken vs not taken
+- Events: microarchitectural event tracking
 
-**Deliverable:** ~10-15 verified functions
-
-
-### Phase 4: Modular Arithmetic (4-6 weeks)
-
-**Goal:** Montgomery arithmetic and modular operations
-
-**Functions:**
-- `bignum_mod`, `bignum_modadd`, `bignum_modsub`
-- `bignum_montmul`, `bignum_montredc`, `bignum_montifier`
-- `bignum_modinv` (extended Euclidean algorithm)
-
-**Challenges:**
-- Complex algorithmic invariants
-- Deep mathematical properties (Montgomery reduction correctness)
-
-**Deliverable:** Complete modular arithmetic library
+**Deliverable:** `Bignum/Arm/Tutorial/Branch.lean`
 
 
-### Phase 5: Elliptic Curves (6-12 weeks, optional)
+### Phase 3: Memory Operations
 
-**Goal:** Full elliptic curve operations
+**Goal:** Verify programs that read/write memory
 
-**Scope:**
-- Field arithmetic for P-256, P-384, or Curve25519
-- Point operations (Jacobian addition, doubling)
-- Scalar multiplication
+**New capabilities needed:**
+- Instructions: `LDR` (load register), `STR` (store register)
+- Memory model: `bytes64`, reading/writing 64-bit words
+- Preconditions: `nonoverlapping` (aliasing constraints)
+- MAYCHANGE: track memory locations that may change
 
-**Note:** This phase is ambitious and may require significant effort.
+**Deliverable:** `Bignum/Arm/Tutorial/Memory.lean`
+
+
+### Phase 4: Loops
+
+**Goal:** Verify programs with simple loops using invariants
+
+**New capabilities needed:**
+- Instructions: `B.NE` (branch if not equal)
+- Tactic: `ENSURES_WHILE_PAUP_TAC` (loop invariant tactic)
+- Loop invariants: relate loop counter to program state
+- Backedge reasoning: prove loop continues until condition
+
+**Deliverable:** `Bignum/Arm/Tutorial/Loop.lean`
+
+
+### Phase 5: Bignum Operations
+
+**Goal:** Verify programs operating on multi-word bignums
+
+**New capabilities needed:**
+- Instructions: `LDP` (load pair of registers)
+- Abstraction: `bignum_from_memory` (read multi-word values)
+- Tactic: `BIGNUM_DIGITIZE_TAC` (split bignum into digits)
+- Full .o parser: complete `define_assert_from_elf` implementation
+
+**Deliverable:** `Bignum/Arm/Tutorial/Bignum.lean`
+
+
+### Phase 6: Read-Only Data
+
+**Goal:** Verify programs that read from .rodata section
+
+**New capabilities needed:**
+- Instructions: `ADRP` (page-relative address), `ADD` (with immediate), `B` (unconditional branch)
+- PC-relative addressing: compute addresses relative to program counter
+- Relocation parser: `define_assert_relocs_from_elf`
+- Read-only section: `bytelist` for constant data
+- Subroutines: `ARM_SUBROUTINE_SIM_TAC` (function call reasoning)
+
+**Deliverable:** `Bignum/Arm/Tutorial/Rodata.lean`
+
+
+### Phase 7: Relational Reasoning - Basics
+
+**Goal:** Prove equivalence of two simple straight-line programs
+
+**New capabilities needed:**
+- Framework: `ensures2` (relational Hoare triple)
+- Tactics:
+  - `ENSURES2_INIT_TAC` (initialize relational symbolic execution)
+  - `ARM_N_STUTTER_LEFT_TAC` (execute left program only)
+  - `ARM_N_STUTTER_RIGHT_TAC` (execute right program only)
+  - `META_EXISTS_TAC`, `UNIFY_REFL_TAC` (unification)
+  - `MONOTONE_MAYCHANGE_CONJ_TAC`
+
+**Deliverable:** `Bignum/Arm/Tutorial/RelSimp.lean`
+
+
+### Phase 8: Relational Reasoning - Equivalence Tactics
+
+**Goal:** Prove equivalence using actions (diff-based approach)
+
+**New capabilities needed:**
+- Helper: `mk_equiv_statement_simple` (build equivalence goal)
+- Predicates: `eqin`, `eqout` (input/output state equivalence)
+- Tactics:
+  - `EQUIV_INITIATE_TAC`
+  - `EQUIV_STEPS_TAC` (lockstep + stuttering based on actions)
+- Actions: list of ("equal", ...) and ("replace", ...) for instruction alignment
+
+**Deliverable:** `Bignum/Arm/Tutorial/RelEquivTac.lean`
+
+
+### Phase 9: Relational Reasoning - Reordering
+
+**Goal:** Prove equivalence of programs with reordered instructions
+
+**New capabilities needed:**
+- Tactics:
+  - `ARM_N_STEPS_AND_ABBREV_TAC` (execute with abbreviations)
+  - `ARM_N_STEPS_AND_REWRITE_TAC` (execute and match abbreviations)
+- Instruction mapping: list mapping instruction indices between programs
+
+**Deliverable:** `Bignum/Arm/Tutorial/RelReorderTac.lean`
+
+
+### Phase 10: Relational Reasoning - Loops
+
+**Goal:** Prove equivalence of two loops
+
+**New capabilities needed:**
+- Tactic: `ENSURES2_WHILE_PAUP_TAC` (relational loop invariant)
+- Loop synchronization: relate loop counters and invariants
+
+**Deliverable:** `Bignum/Arm/Tutorial/RelLoop.lean`
+
+
+### Phase 11: Relational Reasoning - SIMD/Vectorization
+
+**Goal:** Prove equivalence of scalar vs vectorized implementations (128×128→256-bit squaring)
+
+**New capabilities needed:**
+- SIMD/NEON instructions: `LDR Q`, `UMULL_VEC`, `UMULL2_VEC`, `XTN`, `UZP2`, `UMOV`, `EXTR`
+- NEON helper: vector reasoning lemmas and tactics
+- Advanced simplification: `WORD_BITMANIP_SIMP_LEMMAS`, custom word equations
+- Realistic optimization patterns
+
+**Deliverable:** `Bignum/Arm/Tutorial/RelVecEq.lean`
+
+--- 
+
+After completing all ARM tutorials, expand to x86-64 architecture following the same tutorial structure (`x86/tutorial/`).
 
 
 ## Design Principles
