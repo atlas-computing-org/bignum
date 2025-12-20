@@ -47,7 +47,9 @@ bignum-lean/
 
 ## Correspondence with s2n-bignum
 
-Each Lean file documents its correspondence with the original HOL Light source:
+Each Lean file documents its correspondence with the original HOL
+Light source. The structure mirrors s2n-bignum's organization by
+architecture:
 
 ### Core Infrastructure
 
@@ -64,20 +66,6 @@ Each Lean file documents its correspondence with the original HOL Light source:
 | `Bignum/Arm/Spec/Ensures.lean`        | `s2n-bignum/arm/tutorial/simple.ml:65-84` | Specification framework |
 
 
-## Architecture Organization
-
-The structure mirrors s2n-bignum's organization by architecture:
-
-```
-s2n-bignum/          →  Bignum/
-├── common/          →  ├── Common/      (shared definitions)
-├── arm/             →  ├── Arm/         (ARM AArch64)
-│   ├── tutorial/    →  │   └── Tutorial/
-│   ├── generic/     →  │   └── Generic/
-│   └── proofs/      →  │   └── Machine/ + Spec/
-└── x86/             →  └── X86/         (x86-64, future)
-```
-
 ## Building
 
 ```bash
@@ -86,7 +74,10 @@ lake build
 
 ## Development Plan
 
-The development plan follows the s2n-bignum tutorial progression. Each phase implements one tutorial, incrementally building the verification infrastructure. After completing all ARM tutorials, we'll expand to x86-64.
+The development plan follows the s2n-bignum tutorial progression. Each
+phase implements one tutorial, incrementally building the verification
+infrastructure. After completing all ARM tutorials, we'll expand to
+x86-64.
 
 ### ✅ Phase 0: Foundations (Complete)
 
@@ -104,7 +95,8 @@ The development plan follows the s2n-bignum tutorial progression. Each phase imp
 
 ### 🚧 Phase 1: Program Composition
 
-**Goal:** Verify programs by splitting into sequential chunks with intermediate assertions
+**Goal:** Verify programs by splitting into sequential chunks with
+intermediate assertions
 
 **New capabilities needed:**
 - Instructions: `MOV`, `MUL`
@@ -119,7 +111,8 @@ The development plan follows the s2n-bignum tutorial progression. Each phase imp
 **Goal:** Verify programs with conditional branches
 
 **New capabilities needed:**
-- Instructions: `CMP` (comparison with flags), `B.HI` (conditional branch), `RET`
+- Instructions: `CMP` (comparison with flags), `B.HI` (conditional
+  branch), `RET`
 - Flag reasoning: `SOME_FLAGS`, condition codes (ZF, CF, NF, VF)
 - Case analysis: branch taken vs not taken
 - Events: microarchitectural event tracking
@@ -171,7 +164,8 @@ The development plan follows the s2n-bignum tutorial progression. Each phase imp
 **Goal:** Verify programs that read from .rodata section
 
 **New capabilities needed:**
-- Instructions: `ADRP` (page-relative address), `ADD` (with immediate), `B` (unconditional branch)
+- Instructions: `ADRP` (page-relative address), `ADD` (with
+  immediate), `B` (unconditional branch)
 - PC-relative addressing: compute addresses relative to program counter
 - Relocation parser: `define_assert_relocs_from_elf`
 - Read-only section: `bytelist` for constant data
@@ -237,7 +231,8 @@ The development plan follows the s2n-bignum tutorial progression. Each phase imp
 
 ### Phase 11: Relational Reasoning - SIMD/Vectorization
 
-**Goal:** Prove equivalence of scalar vs vectorized implementations (128×128→256-bit squaring)
+**Goal:** Prove equivalence of scalar vs vectorized implementations
+(128×128→256-bit squaring)
 
 **New capabilities needed:**
 - SIMD/NEON instructions: `LDR Q`, `UMULL_VEC`, `UMULL2_VEC`, `XTN`, `UZP2`, `UMOV`, `EXTR`
@@ -249,7 +244,8 @@ The development plan follows the s2n-bignum tutorial progression. Each phase imp
 
 --- 
 
-After completing all ARM tutorials, expand to x86-64 architecture following the same tutorial structure (`x86/tutorial/`).
+After completing all ARM tutorials, expand to x86-64 architecture
+following the same tutorial structure (`x86/tutorial/`).
 
 
 ## Design Principles
@@ -262,13 +258,14 @@ After completing all ARM tutorials, expand to x86-64 architecture following the 
 
 ## Key Differences from HOL Light
 
-| Aspect           | HOL Light                   | Lean 4                                    |
-|------------------|-----------------------------|-------------------------------------------|
-| **Type System**  | Simple types                | Dependent types                           |
-| **Memory Model** | Component abstraction       | Functional map `Address → Option UInt8`   |
-| **Words**        | `:(N)word` type             | `BitVec 64`                               |
-| **Proof Style**  | Tactical (forward/backward) | Tactic + term mode                        |
-| **Automation**   | `WORD_RULE` for arithmetic  | Need custom tactics or `omega`/`polyrith` |
+| Aspect           | HOL Light                   | Lean 4                                  |
+|------------------|-----------------------------|-----------------------------------------|
+| **Type System**  | Simple types                | Dependent types                         |
+| **Memory Model** | Component abstraction       | Functional map `Address → Option UInt8` |
+| **Words**        | `:(N)word` type             | `BitVec 64`                             |
+| **Proof Style**  | Tactical (forward/backward) | Tactic + term mode                      |
+| **Automation**   | `WORD_RULE` for arithmetic  | Lean tactics and custom tactics         |
+
 
 ## Contributing
 
@@ -283,7 +280,6 @@ When adding new verified functions:
 ## References
 
 - [s2n-bignum GitHub](https://github.com/awslabs/s2n-bignum)
-- [s2n-bignum Tutorial](https://github.com/awslabs/s2n-bignum/blob/main/arm/tutorial/simple.ml)
 - [HOL Light](https://github.com/jrh13/hol-light)
 - [Lean 4 Manual](https://lean-lang.org/lean4/doc/)
 
