@@ -270,7 +270,7 @@ theorem simple_correct (pc a b : ℕ)
      ArmState.read_write_diff _ _ _ _ (by decide : Reg.X2 ≠ Reg.X1)
     ]
     rw [h_x0, h_x1]
-    rw [BitVec.add_sub_comm, BitVec.add_comm, BitVec.sub_self, BitVec.add_zero]
+    bv_decide -- rw [BitVec.add_sub_comm, BitVec.add_comm, BitVec.sub_self, BitVec.add_zero]
   · -- only X2 and PC changed
     unfold maychange_regs unchanged_reg
     intro r h_not_changed
