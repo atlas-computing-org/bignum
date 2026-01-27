@@ -160,6 +160,14 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
     let val := Word64.ofNat (imm * 2^pos)
     s.write_reg rd val
     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+  | Instruction.MUL rd rn rm =>
+    -- MUL: Multiply
+    -- Rd := Rn * Rm (low 64 bits of product)
+    let val_n := s.read_reg rn
+    let val_m := s.read_reg rm
+    let result := val_n * val_m  -- BitVec multiplication (wraps at 2^64)
+    s.write_reg rd result
+    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
   | Instruction.RET =>
     -- Return: set PC to X30 (link register)
     let return_addr := s.read_reg Reg.X30

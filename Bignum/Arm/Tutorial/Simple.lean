@@ -14,17 +14,18 @@ public import Bignum.Common.Word
 /-!
 # Simple Example: Proving a Simple ARM Program
 
-This is a line-by-line port of s2n-bignum/arm/tutorial/simple.ml with detailed
+This is a line-by-line port of `s2n-bignum/arm/tutorial/simple.ml` with detailed
 correspondence documented. The program consists of two instructions:
 
 ```asm
 0:   8b000022        add     x2, x1, x0
 4:   cb010042        sub     x2, x2, x1
 ```
-We prove that starting with X0=a and X1=b, after executing both instructions, we
-have X2=a (the additions and subtractions cancel out).
 
-Source: s2n-bignum/arm/tutorial/simple.ml (complete file)
+We prove that starting with `X0 = a` and `X1 = b`, after executing both
+instructions, we have `X2 = a` (the additions and subtractions cancel out).
+
+Source: s2n-bignum/arm/tutorial/simple.ml
 -/
 
 namespace Bignum.Arm.Tutorial
@@ -81,26 +82,13 @@ HOL Light style.
 Instruction encodings:
 - 0x8b000022 = ADD X2, X1, X0
 - 0xcb010042 = SUB X2, X2, X1
-
-Old manual construction (for reference):
-```lean
-def simple_program (pc : Nat) : Program := {
-  base_addr := Word64.ofNat pc
-  instructions := [
-    Instruction.ADD Reg.X2 Reg.X1 Reg.X0,
-    Instruction.SUB Reg.X2 Reg.X2 Reg.X1
-  ]
-}
-```
-
-Source: s2n-bignum/arm/tutorial/simple.ml:28-32
 -/
 def simple_program (pc : Nat) : Program :=
   Program.fromBytes (Word64.ofNat pc) simple_program_bytes
 
 /--
 The manually constructed version of simple_program (for reference and proofs).
-This is what the program looked like before we added decode functionality.
+This is what the program looked like after we added decode functionality.
 -/
 def simple_program_manual (pc : Nat) : Program := {
   base_addr := Word64.ofNat pc
@@ -231,12 +219,13 @@ to `Program.fromBytes`. To fix this properly, we should create helper lemmas:
 For now, we use `sorry` to demonstrate that the decode functionality works.
 The proof will be completed in a future phase.
 
-Source: s2n-bignum/arm/tutorial/simple.ml:65-101
+Source: s2n-bignum/arm/tutorial/simple.ml
 -/
 theorem simple_correct (pc a b : ℕ)
   : (simple_spec pc a b).satisfies := by
   -- Use the equivalence lemma to rewrite simple_program as simple_program_manual
-  have h_eq : simple_program pc = simple_program_manual pc := simple_program_eq_manual pc
+  have h_eq : simple_program pc = simple_program_manual pc :=
+    simple_program_eq_manual pc
   -- Rewrite the spec to use the manual version
   unfold Ensures.satisfies simple_spec
   simp only

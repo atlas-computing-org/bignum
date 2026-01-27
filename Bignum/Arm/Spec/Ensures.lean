@@ -38,7 +38,7 @@ ensures arm
   (MAYCHANGE [regs...])   -- Frame: what may change
 ```
 
-Example from simple.ml:65-84:
+Example from simple.ml:
 ```ocaml
 ensures arm
   (\s. aligned_bytes_loaded s (word pc) simple_mc /\
@@ -49,8 +49,6 @@ ensures arm
        read X2 s = word a)
   (MAYCHANGE [PC;X2])
 ```
-
-Source: s2n-bignum/arm/tutorial/simple.ml:65-84
 -/
 structure Ensures where
   pre : ArmState → Prop

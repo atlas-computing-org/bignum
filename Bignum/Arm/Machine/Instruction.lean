@@ -58,6 +58,7 @@ inductive Instruction
   | STR  : Reg → Address → Instruction
   | MOV  : Reg → Reg → Instruction
   | MOVZ : Reg → ℕ → ℕ → Instruction  -- MOVZ Rd, #imm, LSL #pos
+  | MUL  : Reg → Reg → Reg → Instruction  -- MUL Rd, Rn, Rm (Rd := Rn * Rm)
   | RET  : Instruction
   deriving Repr
 
@@ -80,6 +81,7 @@ def Instruction.toString : Instruction → String
   | STR rd addr   => s!"STR {rd}, [{addr.val}]"
   | MOV rd rn     => s!"MOV {rd}, {rn}"
   | MOVZ rd imm pos => s!"MOVZ {rd}, #{imm}, LSL #{pos}"
+  | MUL rd rn rm    => s!"MUL {rd}, {rn}, {rm}"
   | RET             => "RET"
 
 instance : ToString Instruction := ⟨Instruction.toString⟩
