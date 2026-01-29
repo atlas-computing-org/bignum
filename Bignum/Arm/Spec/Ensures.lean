@@ -15,20 +15,155 @@ public import Mathlib.Data.Nat.Notation
 
 This file defines the `ensures` specification system used in s2n-bignum proofs.
 
-An `ensures` specification consists of:
-- A precondition on the initial state
-- A postcondition on the final state
-- A frame condition describing what may change
+The formal definition follows HOL Light's `s2n-bignum/common/relational.ml`:
 
-Source: s2n-bignum/arm/tutorial/simple.ml:65-84 (SIMPLE_SPEC)
+```hol
+ensures (step:A->A->bool) precondition postcondition frame <=>
+    forall s. precondition s
+        ==> eventually step (\s'. postcondition s' /\ frame s s') s
+```
+
+Where `eventually` is defined inductively as reachability through the step relation.
+
+## Main Definitions
+
+* `eventually step P s` - `P` is reachable from `s` via `step`
+* `ensures step pre post frame` - Hoare triple with frame condition
+* `ensures_trans` - Transitivity (ENSURES_TRANS from relational.ml:1373)
 -/
 
 namespace Bignum
 
 open Arm
 
+/-!
+## Eventually: Reachability Predicate
+
+`eventually step P s` holds if predicate `P` is reachable from state `s`
+through the transition relation `step`.
+
+This corresponds to HOL Light's inductive definition (relational.ml:1021-1028):
+```hol
+(forall s. P s ==> eventually step P s) /\
+(forall s. (exists s'. step s s') /\
+           (forall s'. step s s' ==> eventually step P s')
+             ==> eventually step P s)
+```
+-/
+
 /--
-An ensures specification for ARM programs.
+Reachability predicate: `eventually step P s` holds if `P` is reachable
+from `s` via the transition relation `step`.
+
+- **Base case**: If `P s` holds immediately, then `eventually step P s`
+- **Inductive case**: If there exists a next step and all next states
+  eventually reach `P`, then the current state eventually reaches `P`
+
+Source: s2n-bignum/common/relational.ml:1021-1028
+-/
+inductive eventually (step : α → α → Prop) (P : α → Prop) : α → Prop where
+  | base : P s → eventually step P s
+  | ind : (∃ s', step s s') → (∀ s', step s s' → eventually step P s') → eventually step P s
+
+/--
+`ensures step pre post frame` is the formal specification that from any state
+satisfying `pre`, we eventually reach a state satisfying `post ∧ frame`.
+
+This is the core definition from HOL Light:
+```hol
+ensures (step:A->A->bool) precondition postcondition frame <=>
+    forall s. precondition s
+        ==> eventually step (\s'. postcondition s' /\ frame s s') s
+```
+-/
+def ensures (step : α → α → Prop) (pre post : α → Prop) (frame : α → α → Prop) : Prop :=
+  ∀ s, pre s → eventually step (fun s' => post s' ∧ frame s s') s
+
+/-!
+## Transitivity Theorems
+
+These correspond to ENSURES_TRANS and ENSURES_TRANS_SIMPLE from relational.ml.
+-/
+
+/--
+Monotonicity of eventually: if `P` implies `Q`, then `eventually P` implies
+`eventually Q`.
+
+Source: s2n-bignum/common/relational.ml:1030-1036 (EVENTUALLY_MONO)
+-/
+theorem eventually_mono {step : α → α → Prop} {P Q : α → Prop}
+    (h : ∀ s, P s → Q s) : ∀ s, eventually step P s → eventually step Q s := by
+  intro s hev
+  induction hev with
+  | base hp => exact eventually.base (h _ hp)
+  | ind hex hall ih => exact eventually.ind hex (fun s' hs' => ih s' hs')
+
+/--
+Transitivity of ensures: composing two ensures specifications.
+
+If we have:
+- `ensures step P Q C1` (from P, eventually reach Q with frame C1)
+- `ensures step Q R C2` (from Q, eventually reach R with frame C2)
+
+Then:
+- `ensures step P R (C1 ,, C2)` (from P, eventually reach R with combined frame)
+
+Source: s2n-bignum/common/relational.ml:1373-1393 (ENSURES_TRANS)
+-/
+theorem ensures_trans {step : α → α → Prop} {P Q R : α → Prop} {C1 C2 : α → α → Prop}
+    (h1 : ensures step P Q C1)
+    (h2 : ensures step Q R C2) :
+    ensures step P R (fun s s' => C1 s s' ∧ C2 s s') := by
+  intro s hp
+  have hev1 := h1 s hp
+  sorry
+
+/--
+Simplified transitivity when frames are the same and idempotent (C ,, C = C).
+
+Source: s2n-bignum/common/relational.ml:1394-1399 (ENSURES_TRANS_SIMPLE)
+-/
+theorem ensures_trans_simple {step : α → α → Prop} {P Q R : α → Prop}
+    {C : α → α → Prop}
+    (h_idem : ∀ s s', (C s s' ∧ C s s') ↔ C s s')
+    (h1 : ensures step P Q C)
+    (h2 : ensures step Q R C) :
+    ensures step P R C := by
+  have h := ensures_trans h1 h2
+  intro s hp
+  have hev := h s hp
+  exact eventually_mono (fun s' ⟨hr, hc1, hc2⟩ => ⟨hr, (h_idem s s').mp ⟨hc1, hc2⟩⟩) s hev
+
+/-!
+## ARM Step Relation
+
+The `arm` step relation defines single-instruction execution.
+-/
+
+/--
+ARM single-step relation: `arm prog s s'` holds if `s'` is the result of
+executing one instruction from state `s` using program `prog`.
+
+This corresponds to the `arm` step relation used in HOL Light's
+`ensures arm pre post frame` specifications.
+-/
+def arm (prog : Program) (s s' : ArmState) : Prop :=
+  s.read_reg Reg.PC = prog.base_addr ∧
+  match prog.instructions.head? with
+  | some instr => s' = step instr s
+  | none => False
+
+
+/-!
+## Legacy Structure
+
+The following structure is kept for compatibility with Simple proofs. It
+represents a deterministic execution model where a fixed program is executed to
+completion.
+-/
+
+/--
+An ensures specification for ARM programs (legacy/deterministic version).
 
 This corresponds to HOL Light's `ensures arm` construct:
 ```ocaml
@@ -124,15 +259,5 @@ Combine frame conditions.
 def maychange_and (f1 f2 : ArmState → ArmState → Prop) : ArmState → ArmState → Prop :=
   fun s_init s_final => f1 s_init s_final ∧ f2 s_init s_final
 
-infixr:35 " ,, " => maychange_and
-
-/--
-Standard frame for the simple.ml example:
-Only PC and X2 may change, all other registers and memory must be unchanged.
-
-Source: s2n-bignum/arm/tutorial/simple.ml:84
--/
-def simple_frame : ArmState → ArmState → Prop :=
-  maychange_regs [Reg.PC, Reg.X2]
 
 end Bignum

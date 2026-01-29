@@ -12,7 +12,7 @@ public import Mathlib.Data.Nat.Notation
 /-!
 # Memory Model
 
-This file defines the memory model for ARM verification.
+This file defines the memory model.
 
 ## Main Definitions
 
@@ -25,7 +25,7 @@ This file defines the memory model for ARM verification.
 
 ## References
 
-This corresponds to the memory component in HOL Light's ARM model.
+This corresponds to the memory component in HOL Light's model.
 Source: s2n-bignum/common/components.ml (memory-related definitions)
 -/
 
@@ -80,7 +80,8 @@ def Memory.read_bytes (mem : Memory) (addr : Address) (n : Nat)
 /--
 Write bytes to memory starting at addr.
 -/
-def Memory.write_bytes (mem : Memory) (addr : Address) (bytes : List UInt8) : Memory :=
+def Memory.write_bytes (mem : Memory) (addr : Address) (bytes : List UInt8)
+  : Memory :=
   bytes.zipIdx.foldl
     (fun m (byte, i) => m.write_byte (addr + Word64.ofNat i) byte)
     mem
@@ -137,25 +138,23 @@ def Memory.write_bignum (mem : Memory) (addr : Address) (n : ℕ) (val : ℕ) : 
     mem
 
 /--
-Check if two memory regions do not overlap.
+Check if two memory regions do not overlap. This corresponds to HOL Light's
+`nonoverlapping`, used extensively in preconditions.
 
-This corresponds to HOL Light's `nonoverlapping`.
 Source: s2n-bignum/common/overlap.ml
-Used extensively in preconditions, e.g., bignum_add.ml:84-86
 -/
-def nonoverlapping (addr1 : Address) (size1 : ℕ) (addr2 : Address) (size2 : ℕ) : Prop :=
+def nonoverlapping
+  (addr1 : Address) (size1 : ℕ) (addr2 : Address) (size2 : ℕ) : Prop :=
   addr1.val + size1 ≤ addr2.val ∨ addr2.val + size2 ≤ addr1.val
 
 /--
-Bytes are loaded and aligned at a given address.
-
-Corresponds to HOL Light's `aligned_bytes_loaded`.
-Source: Used in s2n-bignum proofs, e.g., simple.ml:69-72
+Bytes are loaded and aligned at a given address. Corresponds to HOL Light's
+`aligned_bytes_loaded`.
 -/
 def aligned_bytes_loaded (mem : Memory) (addr : Address) (bytes : List UInt8)
   : Prop :=
   addr.val % 4 = 0 ∧  -- 4-byte alignment
-  ∀ i, i < bytes.length →
-    mem.read_byte (addr + Word64.ofNat i) = some (bytes[i]!)
+  ∀ i, (h : i < bytes.length) →
+    mem.read_byte (addr + Word64.ofNat i) = some (bytes[i]'h)
 
 end Bignum

@@ -362,6 +362,123 @@ theorem sequence_chunk2_correct (pc a b : ℕ)
 
 
 /-!
+## Compositional Proof Using ensures_sequence
+
+This section demonstrates the proper use of `ensures_sequence` to compose
+the chunk proofs, matching HOL Light's `ENSURES_SEQUENCE_TAC` approach.
+-/
+
+/--
+Precondition for the sequence program: PC at start, registers initialized.
+-/
+def sequence_pre (pc a b c : ℕ) (s : ArmState) : Prop :=
+  s.read_reg Reg.PC = Word64.ofNat pc ∧
+  s.read_reg Reg.X0 = Word64.ofNat a ∧
+  s.read_reg Reg.X1 = Word64.ofNat b ∧
+  s.read_reg Reg.X2 = Word64.ofNat c
+
+-- Note: sequence_mid is already defined above (line 241)
+
+/--
+Postcondition: PC at pc+16, X1 = (a+b)*2.
+-/
+def sequence_post (pc a b : ℕ) (s : ArmState) : Prop :=
+  s.read_reg Reg.PC = Word64.ofNat (pc + 16) ∧
+  s.read_reg Reg.X1 = Word64.ofNat ((a + b) * 2)
+
+/--
+Chunk1 with frame: establishes intermediate assertion with frame condition.
+-/
+theorem sequence_chunk1_with_frame (pc a b c : ℕ) :
+    ∀ s_init, sequence_pre pc a b c s_init →
+      let s_mid := exec_program (sequence_chunk1 pc) s_init
+      sequence_mid pc a b s_mid ∧ maychange_regs [Reg.PC, Reg.X1, Reg.X2, Reg.X3] s_init s_mid := by
+  intro s_init ⟨h_pc, h_x0, h_x1, h_x2⟩
+  have h := sequence_chunk1_correct pc a b c s_init h_pc h_x0 h_x1 h_x2
+  constructor
+  · -- Intermediate assertion
+    exact h
+  · -- Frame: only PC, X1, X2, X3 may change
+    unfold maychange_regs unchanged_reg
+    intro r h_not_changed
+    simp only [List.mem_cons] at h_not_changed
+    push_neg at h_not_changed
+    obtain ⟨h_ne_pc, h_ne_x1, h_ne_x2, h_ne_x3, _⟩ := h_not_changed
+    -- Prove r is unchanged by symbolic execution
+    unfold sequence_chunk1 exec_program
+    simp only [h_pc, ite_true, exec, List.foldl]
+    repeat rw [step]
+    simp only [
+      ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_x1),
+      ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_x2),
+      ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_pc)
+    ]
+
+/--
+Chunk2 with frame: establishes postcondition with frame condition.
+-/
+theorem sequence_chunk2_with_frame (pc a b : ℕ) :
+    ∀ s_mid, sequence_mid pc a b s_mid →
+      let s_final := exec_program (sequence_chunk2 pc) s_mid
+      sequence_post pc a b s_final ∧ maychange_regs [Reg.PC, Reg.X1, Reg.X2, Reg.X3] s_mid s_final := by
+  intro s_mid ⟨h_pc, h_x1⟩
+  have h := sequence_chunk2_correct pc a b s_mid h_pc h_x1
+  constructor
+  · -- Postcondition
+    exact h
+  · -- Frame: only PC, X1, X2, X3 may change
+    unfold maychange_regs unchanged_reg
+    intro r h_not_changed
+    simp only [List.mem_cons] at h_not_changed
+    push_neg at h_not_changed
+    obtain ⟨h_ne_pc, h_ne_x1, h_ne_x2, h_ne_x3, _⟩ := h_not_changed
+    -- Prove r is unchanged by symbolic execution
+    unfold sequence_chunk2 exec_program
+    simp only [h_pc, ite_true, exec, List.foldl]
+    repeat rw [step]
+    simp only [Nat.pow_zero, Nat.mul_one]
+    simp only [
+      ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_x1),
+      ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_x3),
+      ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_pc)
+    ]
+
+/--
+Frame transitivity for maychange_regs.
+-/
+theorem maychange_regs_trans (regs : List Reg) :
+    ∀ s1 s2 s3, maychange_regs regs s1 s2 → maychange_regs regs s2 s3 → maychange_regs regs s1 s3 := by
+  intro s1 s2 s3 h12 h23
+  unfold maychange_regs unchanged_reg at *
+  intro r hr
+  rw [h12 r hr, h23 r hr]
+
+/--
+Compositional correctness using ensures_sequence.
+
+This proof demonstrates the proper use of compositional verification:
+1. Use sequence_chunk1_with_frame for the first chunk
+2. Use sequence_chunk2_with_frame for the second chunk
+3. Apply ensures_sequence to compose them
+
+This corresponds to HOL Light's ENSURES_SEQUENCE_TAC approach.
+-/
+theorem sequence_correct_compositional (pc a b c : ℕ) :
+    ∀ s_init, sequence_pre pc a b c s_init →
+      let s_final := exec_program (sequence_chunk2 pc) (exec_program (sequence_chunk1 pc) s_init)
+      sequence_post pc a b s_final ∧ maychange_regs [Reg.PC, Reg.X1, Reg.X2, Reg.X3] s_init s_final :=
+  ensures_sequence
+    (sequence_pre pc a b c)
+    (sequence_mid pc a b)
+    (sequence_post pc a b)
+    (maychange_regs [Reg.PC, Reg.X1, Reg.X2, Reg.X3])
+    (sequence_chunk1 pc)
+    (sequence_chunk2 pc)
+    (sequence_chunk1_with_frame pc a b c)
+    (sequence_chunk2_with_frame pc a b)
+    (maychange_regs_trans [Reg.PC, Reg.X1, Reg.X2, Reg.X3])
+
+/-!
 ## Full Program Correctness
 
 Now we compose the two chunk proofs to get the full program correctness.
@@ -385,8 +502,11 @@ theorem sequence_correct (pc a b c : ℕ)
   unfold Ensures.satisfies sequence_spec
   simp only
   intro s_init ⟨h_pc, h_x0, h_x1, h_x2, h_align⟩
-  -- We'll prove this using the manual program (until decoder supports MOV/MUL)
-  -- The proof follows the compositional approach from sequence.ml
+  -- Use the compositional proof
+  have h_pre : sequence_pre pc a b c s_init := ⟨h_pc, h_x0, h_x1, h_x2⟩
+  have h := sequence_correct_compositional pc a b c s_init h_pre
+  -- The programs chunk1 ∘ chunk2 should equal the full manual program
+  -- TODO: prove program equivalence
   sorry
 
 /--
