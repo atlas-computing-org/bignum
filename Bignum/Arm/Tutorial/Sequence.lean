@@ -5,7 +5,7 @@ Author: Alexandre Rademaker
 -/
 module
 
-public import Bignum.Arm.Spec.Ensures
+public import Bignum.Arm.Spec
 public import Bignum.Arm.Machine
 public import Bignum.Common.Word
 
@@ -74,7 +74,7 @@ def sequence_program_manual (pc : Nat) : Program := {
   instructions := [
     Instruction.ADD Reg.X1 Reg.X1 Reg.X0,   -- x1 := x1 + x0
     Instruction.ADD Reg.X2 Reg.X2 Reg.X0,   -- x2 := x2 + x0
-    Instruction.MOVZ Reg.X3 2 0,            -- x3 := 2 (MOVZ with LSL #0)
+    Instruction.MOVZ Reg.X3 2 0,            -- x3 := 2
     Instruction.MUL Reg.X1 Reg.X1 Reg.X3    -- x1 := x1 * x3
   ]
 }

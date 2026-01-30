@@ -5,7 +5,7 @@ Author: Alexandre Rademaker
 -/
 module
 
-public import Bignum.Arm.Spec.Ensures
+public import Bignum.Arm.Spec
 public import Bignum.Arm.Machine
 public import Bignum.Common.Word
 

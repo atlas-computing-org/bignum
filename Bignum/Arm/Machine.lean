@@ -7,5 +7,4 @@ module
 
 public import Bignum.Arm.Machine.State
 public import Bignum.Arm.Machine.Instruction
-public import Bignum.Arm.Machine.Semantics
 public import Bignum.Arm.Machine.Decode
