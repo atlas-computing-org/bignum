@@ -31,57 +31,20 @@ Source: s2n-bignum/arm/tutorial/simple.ml
 namespace Bignum.Arm.Tutorial
 open Bignum Bignum.Arm
 
-/-
-In s2n-bignum, the program is defined as a byte sequence:
-```ocaml
-let simple_mc = new_definition `simple_mc = [
-    word 0x22; word 0x00; word 0x00; word 0x8b; // add x2, x1, x0
-    word 0x42; word 0x00; word 0x01; word 0xcb  // sub x2, x2, x1
-  ]:((8)word)list`;;
-```
-
-Or from the object file:
-```ocaml
-let simple_mc = define_assert_from_elf "simple_mc" "arm/tutorial/simple.o"
-[
-  0x8b000022;       (* arm_ADD X2 X1 X0 *)
-  0xcb010042        (* arm_SUB X2 X2 X1 *)
-];;
-```
-
-Source: s2n-bignum/arm/tutorial/simple.ml:22-37
--/
-
 /--
 The simple program byte sequence.
-
-In s2n-bignum, this is defined as:
-```ocaml
-let simple_mc = [
-    word 0x22; word 0x00; word 0x00; word 0x8b;  -- ADD X2, X1, X0
-    word 0x42; word 0x00; word 0x01; word 0xcb   -- SUB X2, X2, X1
-  ]
-```
 
 ARM is little-endian, so:
 - Bytes [0x22, 0x00, 0x00, 0x8b] encode instruction 0x8b000022 = ADD X2, X1, X0
 - Bytes [0x42, 0x00, 0x01, 0xcb] encode instruction 0xcb010042 = SUB X2, X2, X1
-
-Source: s2n-bignum/arm/tutorial/simple.ml:22-37
 -/
 def simple_program_bytes : List UInt8 :=
   [0x22, 0x00, 0x00, 0x8b,  -- ADD X2, X1, X0
    0x42, 0x00, 0x01, 0xcb]  -- SUB X2, X2, X1
 
 /--
-The simple program: ADD followed by SUB, loaded from byte sequence.
-
-This now uses `Program.fromBytes` to decode the byte sequence, matching the
-HOL Light style.
-
-Instruction encodings:
-- 0x8b000022 = ADD X2, X1, X0
-- 0xcb010042 = SUB X2, X2, X1
+This now uses `Program.fromBytes` to decode the byte sequence, matching the HOL
+Light style.
 -/
 def simple_program (pc : Nat) : Program :=
   Program.fromBytes (Word64.ofNat pc) simple_program_bytes
@@ -99,47 +62,15 @@ def simple_program_manual (pc : Nat) : Program := {
 }
 
 /--
-Proof that decoding simple_program_bytes produces the expected instructions.
-This is the key lemma connecting byte representation to semantic instructions.
--/
-theorem simple_program_bytes_decode :
-  decodeBytes simple_program_bytes =
-  [Instruction.ADD Reg.X2 Reg.X1 Reg.X0,
-   Instruction.SUB Reg.X2 Reg.X2 Reg.X1] := by
-  unfold decodeBytes simple_program_bytes
-  unfold decodeBytes.go decode decodeReg
-  -- After unfolding, simplify the bit operations
-  simp [extractBits, getBit]
-  -- The goals should now be straightforward equalities
-  rfl
-
-/--
 The decoded program is equivalent to the manually constructed one.
 -/
 theorem simple_program_eq_manual (pc : Nat) :
   simple_program pc = simple_program_manual pc := by
-  unfold simple_program simple_program_manual Program.fromBytes
-  simp [simple_program_bytes_decode]
+  rfl
+
 
 /-
 In s2n-bignum, the specification is:
-
-```ocaml
-let SIMPLE_SPEC = prove(
-  `forall pc a b.
-  ensures arm
-    // Precondition
-    (\s. aligned_bytes_loaded s (word pc) simple_mc /\
-         read PC s = word pc /\
-         read X0 s = word a /\
-         read X1 s = word b)
-    // Postcondition
-    (\s. read PC s = word (pc+8) /\
-         read X2 s = word a)
-    // Registers that may change after execution
-    (MAYCHANGE [PC;X2])`,
-  ...proof tactics...)
-```
 
 **Precondition:**
 - PC is at the program start
