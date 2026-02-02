@@ -139,12 +139,13 @@ theorem ensures_trans {step : α → α → Prop} {P Q R : α → Prop}
 
 
 /--
-Simplified transitivity when frames are idempotent under relational composition (C ,, C = C).
+Simplified transitivity when frames are idempotent under relational composition
+(C ,, C = C).
 
-This holds for MAYCHANGE-style frames where `C s s'` means "only certain components
-may differ between s and s'". Such frames are idempotent because if only certain
-components may change from s to s₁, and only those same components may change
-from s₁ to s', then only those components may change from s to s'.
+This holds for MAYCHANGE-style frames where `C s s'` means "only certain
+components may differ between s and s'". Such frames are idempotent because if
+only certain components may change from s to s₁, and only those same components
+may change from s₁ to s', then only those components may change from s to s'.
 
 Source: s2n-bignum/common/relational.ml:1394-1399 (ENSURES_TRANS_SIMPLE)
 -/

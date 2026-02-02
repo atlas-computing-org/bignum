@@ -61,7 +61,6 @@ instance : ToString Reg where
   | .SP  => "SP"
 
 
-
 /--
 ARM condition flags.
 -/
@@ -73,7 +72,7 @@ structure Flags where
   deriving DecidableEq, Repr
 
 /--
-Complete ARM machine state.
+## ARM machine state
 
 This corresponds to the `armstate` type in HOL Light.
 Source: s2n-bignum/arm/proofs/arm.ml
@@ -196,7 +195,7 @@ theorem ArmState.read_write_same (s : ArmState) (r : Reg) (v : Word64) :
 /--
 Reading a different register is not affected by a write to another register.
 -/
-@[simp]
+@[simp, scoped grind =]
 theorem ArmState.read_write_diff (s : ArmState) (r1 r2 : Reg) (v : Word64)
     (h : r1 ≠ r2) :
   (s.write_reg r1 v).read_reg r2 = s.read_reg r2 := by
@@ -209,7 +208,7 @@ theorem ArmState.read_write_diff (s : ArmState) (r1 r2 : Reg) (v : Word64)
 /--
 Writing twice to the same register: the second write overwrites the first.
 -/
-@[simp]
+@[simp, scoped grind =]
 theorem ArmState.write_write_same (s : ArmState) (r : Reg) (v1 v2 : Word64) :
   (s.write_reg r v1).write_reg r v2 = s.write_reg r v2 := by
   unfold write_reg
@@ -222,7 +221,7 @@ theorem ArmState.write_write_same (s : ArmState) (r : Reg) (v1 v2 : Word64) :
 /--
 Writes to different registers commute.
 -/
-@[simp]
+@[simp, scoped grind =]
 theorem ArmState.write_write_comm (s : ArmState) (r1 r2 : Reg) (v1 v2 : Word64)
     (h : r1 ≠ r2) :
   (s.write_reg r1 v1).write_reg r2 v2 = (s.write_reg r2 v2).write_reg r1 v1 := by
