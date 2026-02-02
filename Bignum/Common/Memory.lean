@@ -148,13 +148,28 @@ def nonoverlapping
   addr1.val + size1 ≤ addr2.val ∨ addr2.val + size2 ≤ addr1.val
 
 /--
+Bytes are loaded at a given address (no alignment requirement).
+-/
+def bytes_loaded (mem : Memory) (addr : Address) (bytes : List UInt8) : Prop :=
+  ∀ i, (h : i < bytes.length) →
+    mem.read_byte (addr + Word64.ofNat i) = some (bytes[i]'h)
+
+/--
 Bytes are loaded and aligned at a given address. Corresponds to HOL Light's
 `aligned_bytes_loaded`.
 -/
 def aligned_bytes_loaded (mem : Memory) (addr : Address) (bytes : List UInt8)
   : Prop :=
   addr.val % 4 = 0 ∧  -- 4-byte alignment
-  ∀ i, (h : i < bytes.length) →
-    mem.read_byte (addr + Word64.ofNat i) = some (bytes[i]'h)
+  bytes_loaded mem addr bytes
+
+/--
+Aligned bytes loaded implies bytes loaded.
+-/
+theorem aligned_bytes_loaded_implies_bytes_loaded
+    (mem : Memory) (addr : Address) (bytes : List UInt8) :
+    aligned_bytes_loaded mem addr bytes → bytes_loaded mem addr bytes := by
+  intro ⟨_, h⟩
+  exact h
 
 end Bignum

@@ -285,6 +285,70 @@ Simple.lean tutorial.
 -- #eval decodeReg 31  -- SP
 
 /-!
+## Memory-Based Decoding
+
+The `arm_decode` function reads an instruction from memory at a given PC.
+This corresponds to HOL Light's fetch-decode-execute model where programs
+live in memory.
+-/
+
+/--
+Read 4 bytes from memory starting at the given address.
+Returns `none` if any byte is uninitialized.
+-/
+def read4Bytes (s : ArmState) (addr : Word64) : Option (UInt8 × UInt8 × UInt8 × UInt8) :=
+  match s.mem.read_byte addr,
+        s.mem.read_byte (addr + 1),
+        s.mem.read_byte (addr + 2),
+        s.mem.read_byte (addr + 3) with
+  | some b0, some b1, some b2, some b3 => some (b0, b1, b2, b3)
+  | _, _, _, _ => none
+
+/--
+Decode an instruction from memory at the given PC.
+
+This corresponds to HOL Light's `arm_decode` function which fetches and decodes
+an instruction from the machine state's memory.
+
+The function:
+1. Reads 4 bytes from memory at the PC (little-endian)
+2. Combines them into a 32-bit instruction word
+3. Decodes the word into an `Instruction`
+
+Returns `none` if:
+- Any of the 4 bytes at PC are uninitialized
+- The instruction encoding is invalid or unsupported
+-/
+def arm_decode (s : ArmState) (pc : Word64) : Option Instruction :=
+  match read4Bytes s pc with
+  | some (b0, b1, b2, b3) =>
+    -- ARM is little-endian: byte 0 = bits 7-0, byte 3 = bits 31-24
+    let word := b0.toUInt32
+              ||| (b1.toUInt32 <<< 8)
+              ||| (b2.toUInt32 <<< 16)
+              ||| (b3.toUInt32 <<< 24)
+    decode word
+  | none => none
+
+/--
+If bytes are loaded at an address, read4Bytes succeeds.
+
+TODO: Complete the proof. The key steps:
+1. Extract the 4 bytes from h_loaded
+2. Show they match the memory reads in read4Bytes
+-/
+theorem arm_decode_of_bytes_loaded (s : ArmState) (pc : Word64) (bytes : List UInt8)
+    (h_loaded : Bignum.bytes_loaded s.mem pc bytes)
+    (h_len : bytes.length ≥ 4)
+    (b0 b1 b2 b3 : UInt8)
+    (h0 : bytes[0]'(by omega) = b0)
+    (h1 : bytes[1]'(by omega) = b1)
+    (h2 : bytes[2]'(by omega) = b2)
+    (h3 : bytes[3]'(by omega) = b3) :
+    read4Bytes s pc = some (b0, b1, b2, b3) := by
+  sorry
+
+/-!
 ## Helper Lemmas for Proofs
 
 These lemmas help bridge the gap between decoded byte sequences and manually

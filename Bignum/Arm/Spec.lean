@@ -6,6 +6,7 @@ Author: Alexandre Rademaker
 module
 
 public import Bignum.Arm.Machine.Instruction
+public import Bignum.Arm.Machine.Decode
 public import Mathlib.Data.Nat.Notation
 public import Mathlib.Logic.Relation
 
@@ -163,72 +164,58 @@ theorem ensures_trans_simple {step : α → α → Prop} {P Q R : α → Prop}
 /-!
 ## ARM Step Relation
 
-The `arm` step relation defines single-instruction execution.
+The `arm` step relation defines single-instruction execution using fetch-decode-
+execute from memory, matching HOL Light's architecture where programs live in
+memory rather than as a separate structure.
 -/
 
 /--
-ARM single-step relation: `arm prog s s'` holds if `s'` is the result of
-executing one instruction from state `s` using program `prog`.
+ARM single-step relation: `arm s s'` holds if `s'` is the result of executing
+one instruction from state `s`.
 
-This corresponds to the `arm` step relation used in HOL Light's
-`ensures arm pre post frame` specifications.
+This corresponds to HOL Light's `arm` step relation. The execution:
+1. Reads the PC
+2. Fetches and decodes the instruction at PC from memory
+3. Executes the instruction
+4. Advances the PC (handled by `step`)
+
+This definition keeps programs in memory, matching the paper's model where
+the machine state includes both data and code memory.
 -/
-def arm (prog : Program) (s s' : ArmState) : Prop :=
-  s.read_reg Reg.PC = prog.base_addr ∧
-  match prog.instructions.head? with
+def arm (s s' : ArmState) : Prop :=
+  let pc := s.read_reg Reg.PC
+  match arm_decode s pc with
   | some instr => s' = step instr s
   | none => False
 
-/-!
-## Legacy Structure
+/--
+A program (as machine code bytes) is loaded at the given base address.
 
-The following structure is kept for compatibility with Simple proofs. It
-represents a deterministic execution model where a fixed program is executed to
-completion.
+This corresponds to HOL Light's `aligned_bytes_loaded` combined with a PC check.
+Used in preconditions to assert that the program bytes are in memory.
 -/
+def program_loaded (s : ArmState) (base : Word64) (mc : List UInt8) : Prop :=
+  aligned_bytes_loaded s.mem base mc ∧
+  s.read_reg Reg.PC = base
 
 /--
-An ensures specification for ARM programs (legacy/deterministic version).
-
-This corresponds to HOL Light's `ensures arm` construct:
-```ocaml
-ensures arm
-  (\s. precondition)      -- Initial state must satisfy this
-  (\s. postcondition)     -- Final state must satisfy this
-  (MAYCHANGE [regs...])   -- Frame: what may change
-```
-
-Example from simple.ml:
-```ocaml
-ensures arm
-  (\s. aligned_bytes_loaded s (word pc) simple_mc /\
-       read PC s = word pc /\
-       read X0 s = word a /\
-       read X1 s = word b)
-  (\s. read PC s = word (pc+8) /\
-       read X2 s = word a)
-  (MAYCHANGE [PC;X2])
-```
+Alternative: program bytes loaded without PC constraint.
 -/
-structure Ensures where
-  pre : ArmState → Prop
-  post : ArmState → Prop
-  frame : ArmState → ArmState → Prop
-  prog : Program
+def program_bytes_loaded (s : ArmState) (base : Word64) (mc : List UInt8) : Prop :=
+  aligned_bytes_loaded s.mem base mc
 
 /--
-An ensures specification is satisfied if:
-For all initial states satisfying the precondition,
-executing the program results in a final state that:
-1. Satisfies the postcondition
-2. Satisfies the frame condition (only allowed things changed)
+Convenience: `ensures_arm` specialized to the ARM step relation.
 
-This corresponds to proving the ensures theorem in HOL Light.
+This is the primary interface for ARM program verification:
+```lean
+ensures_arm
+  (fun s => program_loaded s base mc ∧ ...)  -- precondition
+  (fun s => s.read_reg Reg.PC = ... ∧ ...)   -- postcondition
+  (maychange_regs [Reg.PC, ...])             -- frame
+```
 -/
-def Ensures.satisfies (spec : Ensures) : Prop :=
-  ∀ s_init, spec.pre s_init →
-    let s_final := exec_program spec.prog s_init
-    spec.post s_final ∧ spec.frame s_init s_final
+abbrev ensures_arm := ensures arm
 
 
 /-!
@@ -258,7 +245,7 @@ def unchanged_reg (r : Reg) (s₁ s₂ : ArmState) : Prop :=
 /--
 Memory at an address may change.
 -/
-def maychange_mem (addr : Address) (s_init s_final : ArmState) : Prop :=
+def maychange_mem (_addr : Address) (_s_init _s_final : ArmState) : Prop :=
   True  -- Memory location is allowed to change
 
 /--
@@ -270,7 +257,7 @@ def unchanged_mem (addr : Address) (s_init s_final : ArmState) : Prop :=
 /--
 A memory region may change.
 -/
-def maychange_mem_region (addr : Address) (size : ℕ) (s_init s_final : ArmState) : Prop :=
+def maychange_mem_region (_addr : Address) (_size : ℕ) (_s_init _s_final : ArmState) : Prop :=
   True  -- Memory region is allowed to change
 
 /--
