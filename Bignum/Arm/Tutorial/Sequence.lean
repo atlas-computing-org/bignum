@@ -65,10 +65,6 @@ def sequence_mc : List UInt8 :=
    0x43, 0x00, 0x80, 0xd2,  -- MOV X3, #2
    0x21, 0x7c, 0x03, 0x9b]  -- MUL X1, X1, X3
 
-/--
-Length of the sequence program machine code.
--/
-theorem sequence_mc_length : sequence_mc.length = 16 := by rfl
 
 /-!
 ## Specification
@@ -86,8 +82,6 @@ ensures arm
        read X1 s = word ((a + b) * 2))
   (MAYCHANGE [PC;X1;X2;X3])
 ```
-
-Source: s2n-bignum/arm/tutorial/sequence.ml:51-64
 -/
 
 /--
@@ -250,15 +244,14 @@ The proof demonstrates compositional verification:
 2. Prove chunk1 establishes the intermediate assertion (X1 = a + b)
 3. Prove chunk2 uses the intermediate assertion to establish the final result
 4. Compose using ensures_sequence
-
-Source: s2n-bignum/arm/tutorial/sequence.ml
 -/
 theorem sequence_correct (pc a b c : ℕ) :
     ensures arm
       (sequence_pre pc a b c)
       (sequence_post pc a b)
-      (maychange_regs [Reg.PC, Reg.X1, Reg.X2, Reg.X3]) :=
-  ensures_sequence
+      (maychange_regs [Reg.PC, Reg.X1, Reg.X2, Reg.X3]) := by
+  exact
+   ensures_sequence
     (sequence_pre pc a b c)
     (sequence_mid pc a b)
     (sequence_post pc a b)
@@ -266,5 +259,6 @@ theorem sequence_correct (pc a b c : ℕ) :
     (sequence_chunk1_correct pc a b c)
     (sequence_chunk2_correct pc a b)
     (maychange_regs_trans [Reg.PC, Reg.X1, Reg.X2, Reg.X3])
+
 
 end Bignum.Arm.Tutorial

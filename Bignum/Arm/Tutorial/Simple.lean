@@ -25,12 +25,8 @@ correspondence documented. The program consists of two instructions:
 We prove that starting with `X0 = a` and `X1 = b`, after executing both
 instructions, we have `X2 = a` (the additions and subtractions cancel out).
 
-## Memory-Based Model
-
-Following HOL Light's architecture, programs are stored as bytes in memory.
-The `arm` step relation fetches, decodes, and executes instructions from memory.
-
-Source: s2n-bignum/arm/tutorial/simple.ml
+Following HOL Light's architecture, programs are stored as bytes in memory. The
+`arm` step relation fetches, decodes, and executes instructions from memory.
 -/
 
 namespace Bignum.Arm.Tutorial
@@ -53,10 +49,6 @@ def simple_mc : List UInt8 :=
   [0x22, 0x00, 0x00, 0x8b,  -- ADD X2, X1, X0
    0x42, 0x00, 0x01, 0xcb]  -- SUB X2, X2, X1
 
-/--
-Length of the simple program machine code.
--/
-theorem simple_mc_length : simple_mc.length = 8 := by rfl
 
 /-!
 ## Specification
@@ -99,6 +91,7 @@ def simple_post (pc a : ℕ) (s : ArmState) : Prop :=
   -- X2 contains the original value of X0 (which is a)
   s.read_reg Reg.X2 = Word64.ofNat a
 
+
 /-!
 ## Symbolic Execution Helpers
 
@@ -108,11 +101,40 @@ To prove correctness, we need to show that when bytes are loaded in memory,
 
 /--
 Decode the first instruction (ADD X2, X1, X0) from loaded bytes.
+
+The proof connects `aligned_bytes_loaded` (which gives us byte values at each offset)
+to `arm_decode` (which reads 4 bytes and decodes them).
+
+This corresponds to HOL Light's `ARM_MK_EXEC_RULE` which pre-computes decode results.
+In Lean, we prove it as a theorem using the concrete byte values.
 -/
 theorem simple_decode_instr1 (s : ArmState) (pc : Word64)
     (h : aligned_bytes_loaded s.mem pc simple_mc) :
     arm_decode s pc = some (Instruction.ADD Reg.X2 Reg.X1 Reg.X0) := by
-  sorry
+  obtain ⟨h₁, h_bytes⟩ := h
+  -- Get the concrete byte values from bytes_loaded
+  have h0 : s.mem.read_byte pc = some 0x22 := by
+    have := h_bytes 0 (by decide : 0 < 8)
+    simp only [simple_mc, Word64.ofNat] at this
+    convert this using 2
+    exact (BitVec.add_zero pc).symm
+  have h1 : s.mem.read_byte (pc + 1) = some 0x00 := by
+    have := h_bytes 1 (by decide : 1 < 8)
+    simp only [simple_mc, Word64.ofNat] at this
+    convert this using 2
+  have h2 : s.mem.read_byte (pc + 2) = some 0x00 := by
+    have := h_bytes 2 (by decide : 2 < 8)
+    simp only [simple_mc, Word64.ofNat] at this
+    convert this using 2
+  have h3 : s.mem.read_byte (pc + 3) = some 0x8b := by
+    have := h_bytes 3 (by decide : 3 < 8)
+    simp only [simple_mc, Word64.ofNat] at this
+    convert this using 2
+  -- Unfold arm_decode and read4Bytes, substitute the concrete bytes
+  unfold arm_decode read4Bytes
+  simp only [h0, h1, h2, h3]
+  -- The decode of 0x8b000022 computes to ADD X2 X1 X0
+  rfl
 
 /--
 Decode the second instruction (SUB X2, X2, X1) from loaded bytes.
@@ -120,7 +142,32 @@ Decode the second instruction (SUB X2, X2, X1) from loaded bytes.
 theorem simple_decode_instr2 (s : ArmState) (pc : Word64)
     (h : aligned_bytes_loaded s.mem pc simple_mc) :
     arm_decode s (pc + 4) = some (Instruction.SUB Reg.X2 Reg.X2 Reg.X1) := by
-  sorry
+  obtain ⟨_, h_bytes⟩ := h
+  -- Get the concrete byte values for the second instruction (offsets 4-7)
+  have h4 : s.mem.read_byte (pc + 4) = some 0x42 := by
+    have := h_bytes 4 (by decide : 4 < 8)
+    simp only [simple_mc, Word64.ofNat] at this
+    convert this using 2
+  have h5 : s.mem.read_byte (pc + 4 + 1) = some 0x00 := by
+    have := h_bytes 5 (by decide : 5 < 8)
+    simp only [simple_mc, Word64.ofNat] at this
+    convert this using 2
+    bv_omega
+  have h6 : s.mem.read_byte (pc + 4 + 2) = some 0x01 := by
+    have := h_bytes 6 (by decide : 6 < 8)
+    simp only [simple_mc, Word64.ofNat] at this
+    convert this using 2
+    bv_omega
+  have h7 : s.mem.read_byte (pc + 4 + 3) = some 0xcb := by
+    have := h_bytes 7 (by decide : 7 < 8)
+    simp only [simple_mc, Word64.ofNat] at this
+    convert this using 2
+    bv_omega
+  -- Unfold arm_decode and read4Bytes, substitute the concrete bytes
+  unfold arm_decode read4Bytes
+  simp only [h4, h5, h6, h7]
+  -- The decode of 0xcb010042 computes to SUB X2 X2 X1
+  rfl
 
 /-!
 ## Main Correctness Theorem
@@ -148,7 +195,6 @@ theorem simple_correct (pc a b : ℕ) :
   -- Expand ensures definition
   intro s₀ h_pre
   obtain ⟨h_loaded, h_pc, h_x0, h_x1⟩ := h_pre
-
   -- Step 1: Execute ADD X2, X1, X0
   -- arm_decode succeeds because bytes are loaded
   apply eventually.ind
@@ -161,7 +207,6 @@ theorem simple_correct (pc a b : ℕ) :
     -- s₁ is the state after ADD
     unfold arm at h_step1
     simp only [h_pc, simple_decode_instr1 s₀ (Word64.ofNat pc) h_loaded] at h_step1
-
     -- Step 2: Execute SUB X2, X2, X1
     apply eventually.ind
     · -- Show there exists a next state
@@ -203,11 +248,9 @@ theorem simple_correct (pc a b : ℕ) :
       have h_loaded1 : aligned_bytes_loaded s₁.mem (Word64.ofNat pc) simple_mc := by
         rw [h_step1] ; unfold step ; simp only [ArmState.write_reg]
         exact h_loaded
-
       -- Extract s₂ from h_step2
       unfold arm at h_step2
       simp only [h_s1_pc, simple_decode_instr2 s₁ (Word64.ofNat pc) h_loaded1] at h_step2
-
       constructor
       · -- Postcondition
         constructor
@@ -244,5 +287,6 @@ theorem simple_correct (pc a b : ℕ) :
         simp only [
           ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_x2),
           ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_pc)]
+
 
 end Bignum.Arm.Tutorial

@@ -245,29 +245,27 @@ def unchanged_reg (r : Reg) (s₁ s₂ : ArmState) : Prop :=
 /--
 Memory at an address may change.
 -/
-def maychange_mem (_addr : Address) (_s_init _s_final : ArmState) : Prop :=
+def maychange_mem (_addr : Address) (s₁ s₂ : ArmState) : Prop :=
   True  -- Memory location is allowed to change
 
 /--
 Memory at an address must not change.
 -/
-def unchanged_mem (addr : Address) (s_init s_final : ArmState) : Prop :=
-  s_final.read_mem_byte addr = s_init.read_mem_byte addr
+def unchanged_mem (addr : Address) (s₁ s₂ : ArmState) : Prop :=
+  s₂.read_mem_byte addr = s₁.read_mem_byte addr
 
 /--
 A memory region may change.
 -/
-def maychange_mem_region (_addr : Address) (_size : ℕ) (_s_init _s_final : ArmState) : Prop :=
+def maychange_mem_region (_addr : Address) (_size : ℕ) (s₁ s₂ : ArmState) : Prop :=
   True  -- Memory region is allowed to change
+
 
 /--
 Construct a frame condition from lists of registers and memory regions that may change.
-
-Corresponds to HOL Light's `MAYCHANGE [PC; X2]`.
-Example from simple.ml:84: `MAYCHANGE [PC;X2]`
 -/
-def maychange_regs (regs : List Reg) (s_init s_final : ArmState) : Prop :=
-  ∀ r, r ∉ regs → unchanged_reg r s_init s_final
+def maychange_regs (regs : List Reg) (s₁ s₂ : ArmState) : Prop :=
+  ∀ r, r ∉ regs → unchanged_reg r s₁ s₂
 
 /--
 Flags may change.
@@ -282,6 +280,6 @@ def maychange_flags (s₁ s₂ : ArmState) : Prop :=
 Combine frame conditions.
 -/
 def maychange_and (f1 f2 : ArmState → ArmState → Prop) : ArmState → ArmState → Prop :=
-  fun s_init s_final => f1 s_init s_final ∧ f2 s_init s_final
+  fun s₁ s₂ => f1 s₁ s₂ ∧ f2 s₁ s₂
 
 end Bignum
