@@ -5,10 +5,7 @@ Author: Alexandre Rademaker
 -/
 module
 
-public import Bignum.Arm.Machine.Instruction
 public import Bignum.Arm.Machine.Decode
-public import Mathlib.Data.Nat.Notation
-public import Mathlib.Logic.Relation
 
 @[expose] public section
 
@@ -42,9 +39,7 @@ Realistically Modelled Machine Code" (CAV 2025):
 Source: s2n-bignum/common/relational.ml (HOL Light implementation)
 -/
 
-namespace Bignum
-
-open Arm
+namespace Bignum.Arm
 
 /-!
 ## Operational Semantics - Eventually
@@ -224,17 +219,37 @@ abbrev ensures_arm := ensures arm
 Frame conditions specify which components of the state MAY change during
 program execution. Everything not in the frame must remain unchanged.
 
-From relational.ml:
-```ocaml
-MAYCHANGE [X1; X2; X3]  =  ASSIGNS X1 ,, ASSIGNS X2 ,, ASSIGNS X3
-```
--/
+source: s2n-bignum/common/relational.ml
 
-/--
-A register may change between two states.
+In HOL Light, `ASSIGNS` and `MAYCHANGE` have the following semantics:
+
+```ocaml
+(* ASSIGNS c s s' means: there exists some value y such that s' = write c y s *)
+(* i.e., s' differs from s only in component c *)
+ASSIGNS (c:(A,B)component) s s' <=> exists y. (c := y) s s'
+
+(* MAYCHANGE is relational composition of ASSIGNS *)
+MAYCHANGE [] = (=)   (* equality relation: nothing changes *)
+MAYCHANGE (CONS c cs) = ASSIGNS c ,, MAYCHANGE cs
+```
+
+For example: `MAYCHANGE [PC; X2]` = `ASSIGNS PC ,, ASSIGNS X2`
+
+The key insight is that `ASSIGNS c` is **trivially satisfiable** for any two
+states (we can always choose `y = read c s'`). The real constraint comes from
+the composition: if only components in the list may change, then all other
+components must remain equal.
+
+We use a simplified but equivalent formulation:
+- `unchanged_reg r s₁ s₂`: register r has the same value in both states
+- `maychange_regs regs s₁ s₂`: all registers NOT in regs are unchanged
+
+**Constructive vs Observational equivalence**: HOL Light's `ASSIGNS c s s'` is
+*constructive*: it asserts `s' = write c y s` for some `y`. Our formulation is
+*observational*: it only asserts equality of values. These are equivalent when
+`write` is "pure" (only affects the target component) and the state has no
+hidden fields.
 -/
-def maychange_reg (r : Reg) (s₁ s₂ : ArmState) : Prop :=
-  s₁.read_reg r ≠ s₂.read_reg r
 
 /--
 A register must not change between two states.
@@ -243,43 +258,98 @@ def unchanged_reg (r : Reg) (s₁ s₂ : ArmState) : Prop :=
   s₁.read_reg r = s₂.read_reg r
 
 /--
-Memory at an address may change.
--/
-def maychange_mem (_addr : Address) (s₁ s₂ : ArmState) : Prop :=
-  True  -- Memory location is allowed to change
-
-/--
 Memory at an address must not change.
 -/
 def unchanged_mem (addr : Address) (s₁ s₂ : ArmState) : Prop :=
-  s₂.read_mem_byte addr = s₁.read_mem_byte addr
+  s₁.read_mem_byte addr = s₂.read_mem_byte addr
 
 /--
-A memory region may change.
+All flags must not change between two states.
 -/
-def maychange_mem_region (_addr : Address) (_size : ℕ) (s₁ s₂ : ArmState) : Prop :=
-  True  -- Memory region is allowed to change
-
+def unchanged_flags (s₁ s₂ : ArmState) : Prop :=
+  s₁.flags = s₂.flags
 
 /--
-Construct a frame condition from lists of registers and memory regions that may change.
+An individual flag must not change between two states.
+-/
+def unchanged_flag (f : Flag) (s₁ s₂ : ArmState) : Prop :=
+  s₁.read_flag f = s₂.read_flag f
+
+/--
+`maychange_regs regs s₁ s₂` holds when all registers NOT in `regs` are
+unchanged. This is equivalent to HOL Light's `MAYCHANGE [r1; r2; ...]` for
+registers: the registers in the list MAY change (no constraint), while all
+others must remain equal.
+
+Source: s2n-bignum/common/relational.ml
 -/
 def maychange_regs (regs : List Reg) (s₁ s₂ : ArmState) : Prop :=
   ∀ r, r ∉ regs → unchanged_reg r s₁ s₂
 
 /--
-Flags may change.
+`maychange_mem addrs s₁ s₂` holds when all memory addresses NOT in `addrs` are
+unchanged.
 -/
-def maychange_flags (s₁ s₂ : ArmState) : Prop :=
-  s₁.flags.N ≠ s₂.flags.N ∨
-  s₁.flags.Z ≠ s₂.flags.Z ∨
-  s₁.flags.C ≠ s₂.flags.C ∨
-  s₁.flags.V ≠ s₂.flags.V
+def maychange_mem (addrs : List Address) (s₁ s₂ : ArmState) : Prop :=
+  ∀ a, a ∉ addrs → unchanged_mem a s₁ s₂
 
 /--
-Combine frame conditions.
+`maychange_flags flags s₁ s₂` holds when all flags NOT in `flags` are unchanged.
+
+This allows fine-grained control like `MAYCHANGE [CF; ZF]` in HOL Light.
+
+Source: s2n-bignum/arm/proofs/instruction.ml:186-192
 -/
-def maychange_and (f1 f2 : ArmState → ArmState → Prop) : ArmState → ArmState → Prop :=
+def maychange_flags (flags : List Flag) (s₁ s₂ : ArmState) : Prop :=
+  ∀ f, f ∉ flags → unchanged_flag f s₁ s₂
+
+/--
+Combine frame conditions via conjunction.
+
+When we have `maychange_regs regs ∧ maychange_mem addrs`, both constraints
+must hold: registers outside `regs` are unchanged AND memory outside `addrs`
+is unchanged.
+-/
+def maychange_and (f1 f2 : ArmState → ArmState → Prop) :
+  ArmState → ArmState → Prop :=
   fun s₁ s₂ => f1 s₁ s₂ ∧ f2 s₁ s₂
 
-end Bignum
+infixr:35 " ⊓ " => maychange_and
+
+/-!
+## Idempotence of Frame Conditions
+
+A key property for `ensures_trans_simple` is that MAYCHANGE-style frames are
+idempotent under relational composition: `C ,, C = C`.
+
+This holds because:
+- If only regs R may change from s₀ to s₁, and only R may change from s₁ to s₂
+- Then only R may change from s₀ to s₂ (by transitivity of equality on other regs)
+-/
+
+/--
+`maychange_regs` is idempotent under relational composition.
+
+Source: s2n-bignum/common/relational.ml:188-192 (ASSIGNS_ABSORB_SAME_COMPONENTS)
+-/
+theorem maychange_regs_idem (regs : List Reg) :
+    ∀ s₀ s₂, (maychange_regs regs ,, maychange_regs regs) s₀ s₂ →
+             maychange_regs regs s₀ s₂ := by
+  intro s₀ s₂ ⟨s₁, h01, h12⟩ r hr
+  unfold unchanged_reg
+  have eq01 := h01 r hr
+  have eq12 := h12 r hr
+  unfold unchanged_reg at eq01 eq12
+  exact eq01.trans eq12
+
+/--
+Reflexivity: `maychange_regs regs s s` always holds (nothing changed).
+
+This corresponds to HOL Light's `(=) subsumed MAYCHANGE [...]`.
+-/
+theorem maychange_regs_refl (regs : List Reg) (s : ArmState) :
+    maychange_regs regs s s := by
+  intro r _
+  rfl
+
+end Bignum.Arm

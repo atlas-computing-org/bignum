@@ -27,7 +27,8 @@ This corresponds to the ARM state in HOL Light's ARM model.
 Source: s2n-bignum/arm/proofs/arm.ml and instruction.ml
 -/
 
-namespace Bignum
+namespace Bignum.Arm
+
 
 /--
 ARM general-purpose registers and special registers.
@@ -62,7 +63,28 @@ instance : ToString Reg where
 
 
 /--
-ARM condition flags.
+ARM condition flag identifiers.
+
+In HOL Light (s2n-bignum/arm/proofs/instruction.ml:186-192), flags are defined
+as sub-components of a 4-bit field:
+```ocaml
+let NF = define `NF = flags :> bitelement 3`;;
+let ZF = define `ZF = flags :> bitelement 2`;;
+let CF = define `CF = flags :> bitelement 1`;;
+let VF = define `VF = flags :> bitelement 0`;;
+```
+
+Note: Named `CFlag` (Condition Flag) to avoid conflict with Mathlib's `Flag`.
+-/
+inductive Flag
+  | N  -- Negative (bit 3)
+  | Z  -- Zero (bit 2)
+  | C  -- Carry (bit 1)
+  | V  -- Overflow (bit 0)
+  deriving DecidableEq, Repr
+
+/--
+ARM condition flags as a structure.
 -/
 structure Flags where
   N : Bool  -- Negative
@@ -70,6 +92,39 @@ structure Flags where
   C : Bool  -- Carry
   V : Bool  -- Overflow
   deriving DecidableEq, Repr
+
+namespace Flags
+
+/--
+Read an individual flag by its identifier.
+-/
+def read (f : Flags) : Flag → Bool
+  | .N => f.N
+  | .Z => f.Z
+  | .C => f.C
+  | .V => f.V
+
+/--
+Write an individual flag by its identifier.
+-/
+def write (f : Flags) (fl : Flag) (v : Bool) : Flags :=
+  match fl with
+  | .N => { f with N := v }
+  | .Z => { f with Z := v }
+  | .C => { f with C := v }
+  | .V => { f with V := v }
+
+@[simp]
+theorem read_write_same (f : Flags) (fl : Flag) (v : Bool) :
+    (f.write fl v).read fl = v := by
+  cases fl <;> rfl
+
+@[simp]
+theorem read_write_diff (f : Flags) (fl1 fl2 : Flag) (v : Bool) (h : fl1 ≠ fl2) :
+    (f.write fl1 v).read fl2 = f.read fl2 := by
+  cases fl1 <;> cases fl2 <;> simp_all [read, write]
+
+end Flags
 
 /--
 ## ARM machine state
@@ -111,6 +166,22 @@ Corresponds to HOL Light's state update for registers.
 -/
 def ArmState.write_reg (s : ArmState) (r : Reg) (v : Word64) : ArmState :=
   { s with regs := fun r' => if r' = r then v else s.regs r' }
+
+/--
+Read an individual flag from the state.
+
+Corresponds to HOL Light's `read CF s`, `read ZF s`, etc.
+-/
+def ArmState.read_flag (s : ArmState) (f : Flag) : Bool :=
+  s.flags.read f
+
+/--
+Write an individual flag in the state.
+
+Corresponds to HOL Light's flag update, e.g., `CF := b`.
+-/
+def ArmState.write_flag (s : ArmState) (f : Flag) (v : Bool) : ArmState :=
+  { s with flags := s.flags.write f v }
 
 /--
 Read a byte from memory.
@@ -246,4 +317,46 @@ theorem ArmState.read_init (regs : Reg → Word64) (mem : Memory) (r : Reg) :
   unfold init read_reg
   rfl
 
-end Bignum
+
+/-!
+## Simplification Lemmas for Flag Read/Write
+-/
+
+/--
+Reading a flag immediately after writing to it returns the written value.
+-/
+@[simp]
+theorem ArmState.read_flag_write_flag_same (s : ArmState) (f : Flag) (v : Bool) :
+    (s.write_flag f v).read_flag f = v := by
+  unfold write_flag read_flag
+  simp
+
+/--
+Reading a different flag is not affected by writing another flag.
+-/
+@[simp]
+theorem ArmState.read_flag_write_flag_diff (s : ArmState) (f1 f2 : Flag) (v : Bool)
+    (h : f1 ≠ f2) :
+    (s.write_flag f1 v).read_flag f2 = s.read_flag f2 := by
+  unfold write_flag read_flag
+  simp [h]
+
+/--
+Writing a flag does not affect registers.
+-/
+@[simp]
+theorem ArmState.read_reg_write_flag (s : ArmState) (r : Reg) (f : Flag) (v : Bool) :
+    (s.write_flag f v).read_reg r = s.read_reg r := by
+  unfold write_flag read_reg
+  rfl
+
+/--
+Writing a register does not affect flags.
+-/
+@[simp]
+theorem ArmState.read_flag_write_reg (s : ArmState) (f : Flag) (r : Reg) (v : Word64) :
+    (s.write_reg r v).read_flag f = s.read_flag f := by
+  unfold write_reg read_flag
+  rfl
+
+end Bignum.Arm
