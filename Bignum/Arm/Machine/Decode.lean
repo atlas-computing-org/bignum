@@ -346,7 +346,15 @@ theorem arm_decode_of_bytes_loaded (s : ArmState) (pc : Word64) (bytes : List UI
     (h2 : bytes[2]'(by omega) = b2)
     (h3 : bytes[3]'(by omega) = b3) :
     read4Bytes s pc = some (b0, b1, b2, b3) := by
-  sorry
+  have hb0 := h_loaded 0 (by omega)
+  have hb1 := h_loaded 1 (by omega)
+  have hb2 := h_loaded 2 (by omega)
+  have hb3 := h_loaded 3 (by omega)
+  simp [Memory.read_byte, Word64.ofNat] at hb0 hb1 hb2 hb3
+  simp [read4Bytes, Memory.read_byte]
+  rw [hb0, hb1, hb2, hb3]
+  subst h0 h1 h2 h3
+  rfl
 
 /-!
 ## Helper Lemmas for Proofs
