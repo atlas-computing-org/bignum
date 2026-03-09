@@ -48,7 +48,7 @@ inductive Instruction
   | MOVZ : Reg → ℕ → ℕ → Instruction  -- MOVZ Rd, #imm, LSL #pos
   | MUL  : Reg → Reg → Reg → Instruction  -- MUL Rd, Rn, Rm (Rd := Rn * Rm)
   | RET  : Instruction
-  deriving Repr
+  deriving DecidableEq, Repr
 
 /--
 Pretty-print an instruction in ARM assembly syntax.

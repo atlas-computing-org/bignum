@@ -16,7 +16,6 @@ corresponding to the word operations in HOL Light.
 * `Word64` - 64-bit words (alias for BitVec 64)
 * `val` - Convert word to natural number
 * `word` - Convert natural number to word (with modulo)
-* Arithmetic operations with carry/borrow
 
 ## References
 
@@ -49,59 +48,6 @@ Corresponds to HOL Light's `word : num -> (N)word`
 public def Word64.ofNat (n : Nat) : Word64 :=
   BitVec.ofNat 64 n
 
-
-/--
-Word addition with carry out.
-
-Returns (sum, carry) where:
-- sum = (x + y) % 2^64
-- carry = 1 if x + y >= 2^64, else 0
-
-This models the ARM ADDS instruction behavior.
--/
-def Word64.addWithCarry (x y : Word64) : Word64 × Nat :=
-  let sum := x.val + y.val
-  (Word64.ofNat sum, if sum >= 2^64 then 1 else 0)
-
-/--
-Word addition with carry in and carry out.
-
-Returns (sum, carry_out) where:
-- sum = (x + y + carry_in) % 2^64
-- carry_out = 1 if x + y + carry_in >= 2^64, else 0
-
-This models the ARM ADCS instruction behavior.
--/
-def Word64.adcWithCarry (x y : Word64) (carry_in : Nat) : Word64 × Nat :=
-  let sum := x.val + y.val + carry_in
-  (Word64.ofNat sum, if sum >= 2^64 then 1 else 0)
-
-/--
-Word subtraction with borrow out.
-
-Returns (diff, borrow) where:
-- diff = (x - y) % 2^64
-- borrow = 1 if x < y, else 0
-
-This models the ARM SUBS instruction behavior.
--/
-def Word64.subWithBorrow (x y : Word64) : Word64 × Nat :=
-  let diff := x.val - y.val
-  (Word64.ofNat diff, if x.val < y.val then 1 else 0)
-
-/--
-Word subtraction with borrow in and borrow out.
-
-Returns (diff, borrow_out) where:
-- diff = (x - y - borrow_in) % 2^64
-- borrow_out = 1 if x < y + borrow_in, else 0
-
-This models the ARM SBCS instruction behavior.
--/
-def Word64.sbcWithBorrow (x y : Word64) (borrow_in : Nat)
-  : Word64 × Nat :=
-   let diff := x.val - y.val - borrow_in
-   (Word64.ofNat diff, if x.val < y.val + borrow_in then 1 else 0)
 
 /--
 The value of a word constructed from a natural number that's already
