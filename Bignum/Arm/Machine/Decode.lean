@@ -140,6 +140,9 @@ def decode (w : UInt32) : Option Instruction :=
   -- ADD/SUB (register, no shift, 64-bit)
   -- Pattern: [sf; op; S; 01011:5; 00:2; 0:1; Rm:5; 000000:6; Rn:5; Rd:5]
   -- Bits 28-21 = 0b01011000 identifies ADD/SUB register family
+  -- ADD/SUB (register, no shift, 64-bit)
+  -- Pattern: [sf; op; S; 01011:5; 00:2; 0:1; Rm:5; 000000:6; Rn:5; Rd:5]
+  -- Bits 28-21 = 0b01011000 identifies ADD/SUB register family
   if extractBits w 28 21 == 0b01011000 then
     let sf := getBit w 31        -- 64-bit if 1
     let op := getBit w 30        -- 0=ADD, 1=SUB
@@ -160,6 +163,34 @@ def decode (w : UInt32) : Option Instruction :=
         some (Instruction.ADD rd rn rm)
     else
       none  -- Unsupported: 32-bit, or with flags/shift
+  -- MOVZ (Move wide with zero, 64-bit)
+  -- Pattern: [sf=1; opc=10; 100101; hw:2; imm16:16; Rd:5]
+  -- Bits 31-23 = 0b110100101 identifies MOVZ (64-bit)
+  else if extractBits w 31 23 == 0b110100101 then
+    let hw := extractBits w 22 21    -- Shift amount: 0, 16, 32, or 48
+    let imm16 := extractBits w 20 5  -- 16-bit immediate
+    let Rd := extractBits w 4 0      -- Destination register
+    let rd := decodeReg Rd
+    let pos := hw.toNat * 16         -- Shift position in bits
+    some (Instruction.MOVZ rd imm16.toNat pos)
+  -- MADD/MUL (Multiply-Add, 64-bit)
+  -- Pattern: [sf=1; op54=00; 11011; op31=000; Rm:5; o0=0; Ra:5; Rn:5; Rd:5]
+  -- Bits 31-21 = 0b10011011000 identifies MADD (64-bit)
+  -- When Ra = 11111 (XZR), MADD is aliased as MUL
+  else if extractBits w 31 21 == 0b10011011000 then
+    let Rm := extractBits w 20 16  -- Source register 2
+    let o0 := getBit w 15          -- 0=MADD, 1=MSUB
+    let Ra := extractBits w 14 10  -- Addend register
+    let Rn := extractBits w 9 5    -- Source register 1
+    let Rd := extractBits w 4 0    -- Destination register
+    -- Only support MUL (MADD with Ra=XZR=31) and o0=0
+    if !o0 && Ra == 31 then
+      let rd := decodeReg Rd
+      let rn := decodeReg Rn
+      let rm := decodeReg Rm
+      some (Instruction.MUL rd rn rm)
+    else
+      none  -- Unsupported: full MADD/MSUB with non-zero addend
   else
     -- Other instruction families not yet implemented
     none
@@ -283,6 +314,16 @@ Simple.lean tutorial.
 -- #eval decodeReg 1   -- X1
 -- #eval decodeReg 2   -- X2
 -- #eval decodeReg 31  -- SP
+
+-- Test 10: Decode MOVZ X3, #0x2
+-- Binary: 0xd2800043
+-- Expected: MOVZ X3, #2, LSL #0
+-- #eval decode 0xd2800043
+
+-- Test 11: Decode MUL X1, X1, X3
+-- Binary: 0x9b037c21
+-- Expected: MUL X1, X1, X3
+-- #eval decode 0x9b037c21
 
 /-!
 ## Memory-Based Decoding
