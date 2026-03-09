@@ -65,8 +65,8 @@ def Instruction.toString : Instruction → String
   | EOR rd rn rm  => s!"EOR {rd}, {rn}, {rm}"
   | LSL rd rn imm => s!"LSL {rd}, {rn}, #{imm}"
   | LSR rd rn imm => s!"LSR {rd}, {rn}, #{imm}"
-  | LDR rd addr   => s!"LDR {rd}, [{addr.val}]"
-  | STR rd addr   => s!"STR {rd}, [{addr.val}]"
+  | LDR rd addr   => s!"LDR {rd}, [{addr.toNat}]"
+  | STR rd addr   => s!"STR {rd}, [{addr.toNat}]"
   | MOV rd rn     => s!"MOV {rd}, {rn}"
   | MOVZ rd imm pos => s!"MOVZ {rd}, #{imm}, LSL #{pos}"
   | MUL rd rn rm    => s!"MUL {rd}, {rn}, {rm}"
@@ -88,7 +88,7 @@ def Program.split (p : Program) (i : Nat) : Program × Program :=
   let second_instrs := p.instructions.drop i
   let first_prog := { base_addr := p.base_addr, instructions := first_instrs }
   let second_prog := {
-    base_addr := p.base_addr + Word64.ofNat (i * 4),
+    base_addr := p.base_addr + BitVec.ofNat 64 (i * 4),
     instructions := second_instrs }
   (first_prog, second_prog)
 
@@ -152,7 +152,7 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let sum_nat := val_n.toNat + val_m.toNat
-    let result := Word64.ofNat sum_nat
+    let result := BitVec.ofNat 64 sum_nat
     let carry := sum_nat >= 2^64
     let flags := { s.flags with
       C := carry
@@ -165,7 +165,7 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let diff_nat := val_n.toNat - val_m.toNat
-    let result := Word64.ofNat diff_nat
+    let result := BitVec.ofNat 64 diff_nat
     let borrow := val_n.toNat < val_m.toNat
     let flags := { s.flags with
       C := !borrow  -- Carry flag is inverted for subtraction
@@ -179,7 +179,7 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
     let val_m := s.read_reg rm
     let carry_in := if s.flags.C then 1 else 0
     let sum_nat := val_n.toNat + val_m.toNat + carry_in
-    let result := Word64.ofNat sum_nat
+    let result := BitVec.ofNat 64 sum_nat
     let carry := sum_nat >= 2^64
     let flags := { s.flags with
       C := carry
@@ -193,7 +193,7 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
     let val_m := s.read_reg rm
     let borrow_in := if s.flags.C then 0 else 1
     let diff_nat := val_n.toNat - val_m.toNat - borrow_in
-    let result := Word64.ofNat diff_nat
+    let result := BitVec.ofNat 64 diff_nat
     let borrow := val_n.toNat < val_m.toNat + borrow_in
     let flags := { s.flags with
       C := !borrow
@@ -239,7 +239,7 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
     -- MOVZ: Move wide with zero
     -- Rd := imm * 2^pos (16-bit immediate shifted to position pos)
     -- pos must be 0, 16, 32, or 48
-    let val := Word64.ofNat (imm * 2^pos)
+    let val := BitVec.ofNat 64 (imm * 2^pos)
     advance_pc s (s.write_reg rd val)
   | Instruction.MUL rd rn rm =>
     -- MUL: Multiply

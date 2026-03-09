@@ -71,7 +71,7 @@ def Memory.read_bytes (mem : Memory) (addr : Address) (n : Nat)
     if i = 0 then
       some acc.reverse
     else
-      let offset := Word64.ofNat (n - i)
+      let offset := BitVec.ofNat 64 (n - i)
       match mem (addr + offset) with
       | none => none
       | some byte => aux (i - 1) (byte :: acc)
@@ -83,7 +83,7 @@ Write bytes to memory starting at addr.
 def Memory.write_bytes (mem : Memory) (addr : Address) (bytes : List UInt8)
   : Memory :=
   bytes.zipIdx.foldl
-    (fun m (byte, i) => m.write_byte (addr + Word64.ofNat i) byte)
+    (fun m (byte, i) => m.write_byte (addr + BitVec.ofNat 64 i) byte)
     mem
 
 /--
@@ -97,7 +97,7 @@ def Memory.read_word64 (mem : Memory) (addr : Address) : Option Word64 :=
     -- Combine 8 bytes in little-endian order
     -- byte[0] is least significant, byte[7] is most significant
     some <| bytes.zipIdx.foldl
-      (fun acc (byte, i) => acc + Word64.ofNat (byte.toNat * 2^(8 * i)))
+      (fun acc (byte, i) => acc + BitVec.ofNat 64 (byte.toNat * 2^(8 * i)))
       0
 
 /--
@@ -105,7 +105,7 @@ Write a 64-bit word to memory in little-endian format.
 -/
 def Memory.write_word64 (mem : Memory) (addr : Address) (w : Word64) : Memory :=
   let bytes := List.range 8 |>.map fun i =>
-    UInt8.ofNat ((w.val / 2^(8 * i)) % 256)
+    UInt8.ofNat ((w.toNat / 2^(8 * i)) % 256)
   mem.write_bytes addr bytes
 
 /--
@@ -120,10 +120,10 @@ def Memory.read_bignum (mem : Memory) (addr : Address) (n : ℕ) : Option ℕ :=
     if i = 0 then
       some acc
     else
-      let word_addr := addr + Word64.ofNat (8 * (n - i))
+      let word_addr := addr + BitVec.ofNat 64 (8 * (n - i))
       match mem.read_word64 word_addr with
       | none => none
-      | some w => aux (i - 1) (acc + 2^(64 * (n - i)) * w.val)
+      | some w => aux (i - 1) (acc + 2^(64 * (n - i)) * w.toNat)
   aux n 0
 
 /--
@@ -132,8 +132,8 @@ Write a bignum to memory as n 64-bit words.
 def Memory.write_bignum (mem : Memory) (addr : Address) (n : ℕ) (val : ℕ) : Memory :=
   List.range n |>.foldl
     (fun m i =>
-      let word_addr := addr + Word64.ofNat (8 * i)
-      let word := Word64.ofNat ((val / 2^(64 * i)) % 2^64)
+      let word_addr := addr + BitVec.ofNat 64 (8 * i)
+      let word := BitVec.ofNat 64 ((val / 2^(64 * i)) % 2^64)
       m.write_word64 word_addr word)
     mem
 
@@ -145,14 +145,14 @@ Source: s2n-bignum/common/overlap.ml
 -/
 def nonoverlapping
   (addr1 : Address) (size1 : ℕ) (addr2 : Address) (size2 : ℕ) : Prop :=
-  addr1.val + size1 ≤ addr2.val ∨ addr2.val + size2 ≤ addr1.val
+  addr1.toNat + size1 ≤ addr2.toNat ∨ addr2.toNat + size2 ≤ addr1.toNat
 
 /--
 Bytes are loaded at a given address (no alignment requirement).
 -/
 def bytes_loaded (mem : Memory) (addr : Address) (bytes : List UInt8) : Prop :=
   ∀ i, (h : i < bytes.length) →
-    mem.read_byte (addr + Word64.ofNat i) = some (bytes[i]'h)
+    mem.read_byte (addr + BitVec.ofNat 64 i) = some (bytes[i]'h)
 
 /--
 Bytes are loaded and aligned at a given address. Corresponds to HOL Light's
@@ -160,7 +160,7 @@ Bytes are loaded and aligned at a given address. Corresponds to HOL Light's
 -/
 def aligned_bytes_loaded (mem : Memory) (addr : Address) (bytes : List UInt8)
   : Prop :=
-  addr.val % 4 = 0 ∧  -- 4-byte alignment
+  addr.toNat % 4 = 0 ∧  -- 4-byte alignment
   bytes_loaded mem addr bytes
 
 /--

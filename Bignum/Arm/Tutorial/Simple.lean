@@ -74,22 +74,22 @@ Precondition: program loaded, PC at start, registers initialized.
 -/
 def simple_pre (pc a b : ℕ) (s : ArmState) : Prop :=
   -- Program bytes are loaded at PC (4-byte aligned)
-  aligned_bytes_loaded s.mem (Word64.ofNat pc) simple_mc ∧
+  aligned_bytes_loaded s.mem (BitVec.ofNat 64 pc) simple_mc ∧
   -- PC is at program start
-  s.read_reg Reg.PC = Word64.ofNat pc ∧
+  s.read_reg Reg.PC = BitVec.ofNat 64 pc ∧
   -- X0 contains a
-  s.read_reg Reg.X0 = Word64.ofNat a ∧
+  s.read_reg Reg.X0 = BitVec.ofNat 64 a ∧
   -- X1 contains b
-  s.read_reg Reg.X1 = Word64.ofNat b
+  s.read_reg Reg.X1 = BitVec.ofNat 64 b
 
 /--
 Postcondition: PC advanced, X2 contains a.
 -/
 def simple_post (pc a : ℕ) (s : ArmState) : Prop :=
   -- PC advanced by 8 bytes (2 instructions)
-  s.read_reg Reg.PC = Word64.ofNat (pc + 8) ∧
+  s.read_reg Reg.PC = BitVec.ofNat 64 (pc + 8) ∧
   -- X2 contains the original value of X0 (which is a)
-  s.read_reg Reg.X2 = Word64.ofNat a
+  s.read_reg Reg.X2 = BitVec.ofNat 64 a
 
 
 /-!
@@ -115,20 +115,20 @@ theorem simple_decode_instr1 (s : ArmState) (pc : Word64)
   -- Get the concrete byte values from bytes_loaded
   have h0 : s.mem.read_byte pc = some 0x22 := by
     have := h_bytes 0 (by decide : 0 < 8)
-    simp only [simple_mc, Word64.ofNat] at this
+    simp only [simple_mc] at this
     convert this using 2
     exact (BitVec.add_zero pc).symm
   have h1 : s.mem.read_byte (pc + 1) = some 0x00 := by
     have := h_bytes 1 (by decide : 1 < 8)
-    simp only [simple_mc, Word64.ofNat] at this
+    simp only [simple_mc] at this
     convert this using 2
   have h2 : s.mem.read_byte (pc + 2) = some 0x00 := by
     have := h_bytes 2 (by decide : 2 < 8)
-    simp only [simple_mc, Word64.ofNat] at this
+    simp only [simple_mc] at this
     convert this using 2
   have h3 : s.mem.read_byte (pc + 3) = some 0x8b := by
     have := h_bytes 3 (by decide : 3 < 8)
-    simp only [simple_mc, Word64.ofNat] at this
+    simp only [simple_mc] at this
     convert this using 2
   -- Unfold arm_decode and read4Bytes, substitute the concrete bytes
   unfold arm_decode read4Bytes
@@ -146,21 +146,21 @@ theorem simple_decode_instr2 (s : ArmState) (pc : Word64)
   -- Get the concrete byte values for the second instruction (offsets 4-7)
   have h4 : s.mem.read_byte (pc + 4) = some 0x42 := by
     have := h_bytes 4 (by decide : 4 < 8)
-    simp only [simple_mc, Word64.ofNat] at this
+    simp only [simple_mc] at this
     convert this using 2
   have h5 : s.mem.read_byte (pc + 4 + 1) = some 0x00 := by
     have := h_bytes 5 (by decide : 5 < 8)
-    simp only [simple_mc, Word64.ofNat] at this
+    simp only [simple_mc] at this
     convert this using 2
     bv_omega
   have h6 : s.mem.read_byte (pc + 4 + 2) = some 0x01 := by
     have := h_bytes 6 (by decide : 6 < 8)
-    simp only [simple_mc, Word64.ofNat] at this
+    simp only [simple_mc] at this
     convert this using 2
     bv_omega
   have h7 : s.mem.read_byte (pc + 4 + 3) = some 0xcb := by
     have := h_bytes 7 (by decide : 7 < 8)
-    simp only [simple_mc, Word64.ofNat] at this
+    simp only [simple_mc] at this
     convert this using 2
     bv_omega
   -- Unfold arm_decode and read4Bytes, substitute the concrete bytes
@@ -201,56 +201,56 @@ theorem simple_correct (pc a b : ℕ) :
   · -- Show there exists a next state
     use step (Instruction.ADD Reg.X2 Reg.X1 Reg.X0) s₀
     unfold arm
-    simp only [h_pc, simple_decode_instr1 s₀ (Word64.ofNat pc) h_loaded]
+    simp only [h_pc, simple_decode_instr1 s₀ (BitVec.ofNat 64 pc) h_loaded]
   · -- For all next states, eventually reach goal
     intro s₁ h_step1
     -- s₁ is the state after ADD
     unfold arm at h_step1
-    simp only [h_pc, simple_decode_instr1 s₀ (Word64.ofNat pc) h_loaded] at h_step1
+    simp only [h_pc, simple_decode_instr1 s₀ (BitVec.ofNat 64 pc) h_loaded] at h_step1
     -- Step 2: Execute SUB X2, X2, X1
     apply eventually.ind
     · -- Show there exists a next state
       use step (Instruction.SUB Reg.X2 Reg.X2 Reg.X1) s₁
       -- After ADD, PC = pc + 4
-      have h_pc1 : s₁.read_reg Reg.PC = Word64.ofNat pc + 4 := by
+      have h_pc1 : s₁.read_reg Reg.PC = BitVec.ofNat 64 pc + 4 := by
         rw [h_step1]
         unfold step
         simp only [ArmState.read_write_same]
         rw [h_pc]
       -- Bytes are still loaded (memory unchanged by ADD)
-      have h_loaded1 : aligned_bytes_loaded s₁.mem (Word64.ofNat pc) simple_mc := by
+      have h_loaded1 : aligned_bytes_loaded s₁.mem (BitVec.ofNat 64 pc) simple_mc := by
         rw [h_step1]
         unfold step
         simp only [ArmState.write_reg]
         exact h_loaded
       unfold arm
-      simp only [h_pc1, simple_decode_instr2 s₁ (Word64.ofNat pc) h_loaded1]
+      simp only [h_pc1, simple_decode_instr2 s₁ (BitVec.ofNat 64 pc) h_loaded1]
     · -- For all next states, show goal (base case)
       intro s₂ h_step2
       apply eventually.base
       -- s₂ is the final state after SUB
       -- Extract information about s₁ from h_step1
-      have h_s1_pc : s₁.read_reg Reg.PC = Word64.ofNat pc + 4 := by
+      have h_s1_pc : s₁.read_reg Reg.PC = BitVec.ofNat 64 pc + 4 := by
         rw [h_step1] ; unfold step
         simp only [ArmState.read_write_same]
         rw [h_pc]
-      have h_s1_x2 : s₁.read_reg Reg.X2 = Word64.ofNat b + Word64.ofNat a := by
+      have h_s1_x2 : s₁.read_reg Reg.X2 = BitVec.ofNat 64 b + BitVec.ofNat 64 a := by
         rw [h_step1] ; unfold step
         simp only [ArmState.read_write_same,
           ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X2)]
         rw [h_x1, h_x0]
-      have h_s1_x1 : s₁.read_reg Reg.X1 = Word64.ofNat b := by
+      have h_s1_x1 : s₁.read_reg Reg.X1 = BitVec.ofNat 64 b := by
         rw [h_step1] ; unfold step
         simp only [
           ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X1),
           ArmState.read_write_diff _ _ _ _ (by decide : Reg.X2 ≠ Reg.X1)]
         exact h_x1
-      have h_loaded1 : aligned_bytes_loaded s₁.mem (Word64.ofNat pc) simple_mc := by
+      have h_loaded1 : aligned_bytes_loaded s₁.mem (BitVec.ofNat 64 pc) simple_mc := by
         rw [h_step1] ; unfold step ; simp only [ArmState.write_reg]
         exact h_loaded
       -- Extract s₂ from h_step2
       unfold arm at h_step2
-      simp only [h_s1_pc, simple_decode_instr2 s₁ (Word64.ofNat pc) h_loaded1] at h_step2
+      simp only [h_s1_pc, simple_decode_instr2 s₁ (BitVec.ofNat 64 pc) h_loaded1] at h_step2
       constructor
       · -- Postcondition
         constructor
@@ -258,8 +258,7 @@ theorem simple_correct (pc a b : ℕ) :
           rw [h_step2] ; unfold step
           simp only [ArmState.read_write_same]
           rw [h_s1_pc]
-          -- Goal: Word64.ofNat pc + 4 + 4 = Word64.ofNat (pc + 8)
-          unfold Word64.ofNat
+          -- Goal: BitVec.ofNat 64 pc + 4 + 4 = BitVec.ofNat 64 (pc + 8)
           simp only [BitVec.add_assoc]
           -- Goal: BitVec.ofNat 64 pc + (4 + 4) = BitVec.ofNat 64 (pc + 8)
           rw [show (4 : BitVec 64) + 4 = 8 by rfl]
@@ -271,7 +270,6 @@ theorem simple_correct (pc a b : ℕ) :
             ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X2)]
           rw [h_s1_x2, h_s1_x1]
           -- Goal: (b + a) - b = a
-          unfold Word64.ofNat
           rw [BitVec.add_comm, BitVec.add_sub_cancel]
       · -- Frame: only PC and X2 changed
         unfold maychange_regs unchanged_reg

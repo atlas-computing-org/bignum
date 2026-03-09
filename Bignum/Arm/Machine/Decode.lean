@@ -261,7 +261,7 @@ def simple_program_bytes : List UInt8 :=
    0x42, 0x00, 0x01, 0xcb]  -- SUB X2, X2, X1
 
 def simple_program (pc : Nat) : Program :=
-  Program.fromBytes (Word64.ofNat pc) simple_program_bytes
+  Program.fromBytes (BitVec.ofNat 64 pc) simple_program_bytes
 ```
 -/
 def Program.fromBytes (base_addr : Word64) (bytes : List UInt8) : Program :=
@@ -305,7 +305,7 @@ Simple.lean tutorial.
 -- #eval decodeBytes [0x22, 0x00, 0x00, 0x8b, 0x42, 0x00, 0x01, 0xcb]
 
 -- Test 7: Program creation from bytes
--- #eval Program.fromBytes (Word64.ofNat 0)
+-- #eval Program.fromBytes (BitVec.ofNat 64 0)
 --                         [0x22, 0x00, 0x00, 0x8b,
 --                          0x42, 0x00, 0x01, 0xcb]
 
@@ -388,7 +388,7 @@ theorem arm_decode_of_bytes_loaded (s : ArmState) (pc : Word64) (bytes : List UI
   have hb1 := h_loaded 1 (by omega)
   have hb2 := h_loaded 2 (by omega)
   have hb3 := h_loaded 3 (by omega)
-  simp [Memory.read_byte, Word64.ofNat] at hb0 hb1 hb2 hb3
+  simp [Memory.read_byte] at hb0 hb1 hb2 hb3
   simp [read4Bytes, Memory.read_byte]
   rw [hb0, hb1, hb2, hb3]
   subst h0 h1 h2 h3
