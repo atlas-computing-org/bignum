@@ -28,9 +28,8 @@ bignum-lean/
 │   │   │   ├── State.lean       # ARM state (registers, flags, memory)
 │   │   │   ├── Instruction.lean # ARM instruction types
 │   │   │   ├── Decode.lean      # Instruction decoder (bytes → instructions)
-│   │   │   └── Semantics.lean   # Operational semantics
-│   │   ├── Spec/
-│   │   │   └── Ensures.lean     # Pre/post/frame specifications
+│   │   │   └── Loader.lean      # ELF/Mach-O object file loader
+│   │   ├── Spec.lean            # Pre/post/frame specifications + semantics
 │   │   ├── Generic/             # Generic bignum operations (future)
 │   │   ├── Curve/               # Elliptic curve operations (future)
 │   │   └── Tutorial/            # Port of arm tutorials
@@ -53,17 +52,17 @@ architecture:
 
 ### Core Infrastructure
 
-| Lean File                             | HOL Light Source                          | Description             |
-|---------------------------------------|-------------------------------------------|-------------------------|
-| `Bignum/Common/Basic/Defs.lean`       | `s2n-bignum/common/bignum.ml:11-77`       | Core bignum definitions |
-| `Bignum/Common/Basic/Lemmas.lean`     | `s2n-bignum/common/bignum.ml:79-150`      | Fundamental theorems    |
-| `Bignum/Common/Word.lean`             | HOL Light `Library/words.ml`              | 64-bit word operations  |
-| `Bignum/Common/Memory.lean`           | `s2n-bignum/common/components.ml`         | Memory model            |
-| `Bignum/Arm/Machine/State.lean`       | `s2n-bignum/arm/proofs/arm.ml`            | ARM machine state       |
-| `Bignum/Arm/Machine/Instruction.lean` | `s2n-bignum/arm/proofs/instruction.ml`    | ARM instructions        |
-| `Bignum/Arm/Machine/Decode.lean`      | `s2n-bignum/arm/proofs/decode.ml`         | Instruction decoder     |
-| `Bignum/Arm/Machine/Semantics.lean`   | `s2n-bignum/arm/proofs/arm.ml`            | Instruction semantics   |
-| `Bignum/Arm/Spec/Ensures.lean`        | `s2n-bignum/arm/tutorial/simple.ml:65-84` | Specification framework |
+| Lean File                             | HOL Light Source                       | Description                         |
+|---------------------------------------|----------------------------------------|-------------------------------------|
+| `Bignum/Common/Basic/Defs.lean`       | `s2n-bignum/common/bignum.ml:11-77`    | Core bignum definitions             |
+| `Bignum/Common/Basic/Lemmas.lean`     | `s2n-bignum/common/bignum.ml:79-150`   | Fundamental theorems                |
+| `Bignum/Common/Word.lean`             | HOL Light `Library/words.ml`           | 64-bit word operations              |
+| `Bignum/Common/Memory.lean`           | `s2n-bignum/common/components.ml`      | Memory model                        |
+| `Bignum/Arm/Machine/State.lean`       | `s2n-bignum/arm/proofs/arm.ml`         | ARM machine state                   |
+| `Bignum/Arm/Machine/Instruction.lean` | `s2n-bignum/arm/proofs/instruction.ml` | ARM instructions                    |
+| `Bignum/Arm/Machine/Decode.lean`      | `s2n-bignum/arm/proofs/decode.ml`      | Instruction decoder                 |
+| `Bignum/Arm/Machine/Loader.lean`      | `s2n-bignum/common/common/elf.ml`      | ELF/Mach-O object loader            |
+| `Bignum/Arm/Spec.lean`                | `s2n-bignum/arm/proofs/arm.ml`         | Semantics + specification framework |
 
 
 ## Building
@@ -93,15 +92,15 @@ x86-64.
 
 **Deliverable:** `Bignum/Arm/Tutorial/Simple.lean`
 
-### 🚧 Phase 1: Program Composition
+### ✅ Phase 1: Program Composition (Complete)
 
 **Goal:** Verify programs by splitting into sequential chunks with
 intermediate assertions
 
-**New capabilities needed:**
+**What we built:**
 - Instructions: `MOV`, `MUL`
 - Tactic: `ENSURES_SEQUENCE_TAC` (split program with intermediate state)
-- .o file parser: `define_assert_from_elf` (extract bytecode from ELF)
+- Object file loader: `Loader.lean` (ELF/Mach-O `.o` parser)
 
 **Deliverable:** `Bignum/Arm/Tutorial/Sequence.lean`
 
