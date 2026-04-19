@@ -376,7 +376,7 @@ theorem lowdigits_lowdigits (n i j : Nat) :
     apply Nat.pow_dvd_pow
     omega
   · -- i < j: n % 2^(64*i) < 2^(64*i) ≤ 2^(64*j), so second mod is identity
-    push_neg at hjle
+    push Not at hjle
     rw [Nat.min_eq_left (Nat.le_of_lt hjle)]
     apply Nat.mod_eq_of_lt
     exact Nat.lt_of_lt_of_le (Nat.mod_lt n (Nat.two_pow_pos (64 * i)))
@@ -468,17 +468,14 @@ Source: s2n-bignum/common/bignum.ml:41-62
 theorem bigdigit_add_left (a n b i : Nat) (h : i < n) :
     bigdigit (a + 2 ^ (64 * n) * b) i = bigdigit a i := by
   unfold bigdigit
-  -- Goal: (a + 2^(64*n) * b) / 2^(64*i) % 2^64 = a / 2^(64*i) % 2^64
   have hexp_split : 2 ^ (64 * n) = 2 ^ (64 * i) * 2 ^ (64 * (n - i)) := by
     rw [← Nat.pow_add]; congr 1; omega
   rw [hexp_split, Nat.mul_assoc]
   rw [Nat.add_mul_div_left _ _ (Nat.two_pow_pos (64 * i))]
-  have hni_pos : 0 < n - i := by omega
   have hexp_split2 : 2 ^ (64 * (n - i)) = 2 ^ 64 * 2 ^ (64 * (n - i - 1)) := by
     rw [← Nat.pow_add]; congr 1; omega
   rw [hexp_split2, Nat.mul_assoc]
   rw [Nat.add_mul_mod_self_left]
-
 
 /--
 Successor digit extraction: extracting digit (i+1) from a 2-word number.
@@ -565,7 +562,7 @@ theorem bigdigit_lowdigits (n i j : Nat) :
     exact (bigdigit_add_left (lowdigits n i) i (highdigits n i) j hji).symm
   · -- Case ¬(j < i), i.e., i ≤ j
     rename_i hji
-    push_neg at hji
+    push Not at hji
     apply bigdigit_of_lt
     exact Nat.lt_of_lt_of_le (lowdigits_bound n i)
       (Nat.pow_le_pow_right (by norm_num : 1 ≤ 2) (by omega))

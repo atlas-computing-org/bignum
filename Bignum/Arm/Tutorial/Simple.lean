@@ -275,7 +275,7 @@ theorem simple_correct (pc a b : ℕ) :
         unfold maychange_regs unchanged_reg
         intro r h_not_in
         simp only [List.mem_cons] at h_not_in
-        push_neg at h_not_in
+        push Not at h_not_in
         obtain ⟨h_ne_pc, h_ne_x2, _⟩ := h_not_in
         rw [h_step2] ; unfold step
         simp only [

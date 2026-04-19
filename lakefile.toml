@@ -1,7 +1,7 @@
 name = "bignum"
 version = "0.1.0"
 keywords = ["math"]
-defaultTargets = ["Bignum"]
+defaultTargets = ["Bignum", "BignumTests"]
 
 [leanOptions]
 pp.unicode.fun = true # pretty-prints `fun a ↦ b`
@@ -20,6 +20,11 @@ scope = "leanprover"
 
 [[lean_lib]]
 name = "Bignum"
+globs = ["Bignum", "Bignum.**"]
+
+[[lean_lib]]
+name = "BignumTests"
+needs = ["Bignum"]
 
 [[lean_exe]]
 name = "sh"

@@ -269,60 +269,6 @@ def Program.fromBytes (base_addr : Word64) (bytes : List UInt8) : Program :=
     instructions := decodeBytes bytes }
 
 /-!
-## Tests and Validation
-
-These tests verify the decoder against known instruction encodings from the
-Simple.lean tutorial.
--/
-
--- Test 1: Decode ADD X2, X1, X0
--- Binary: 10001011 00000000 00000000 00100010 = 0x8b000022
--- Expected: ADD X2, X1, X0
--- #eval decode 0x8b000022
--- Note: Commented out due to missing native implementation for Instruction repr
-
--- Test 2: Decode SUB X2, X2, X1
--- Binary: 11001011 00000001 00000000 01000010 = 0xcb010042
--- Expected: SUB X2, X2, X1
--- #eval decode 0xcb010042
-
--- Test 3: Invalid encoding (all zeros)
--- Expected: none
--- #eval decode 0x00000000
-
--- Test 4: Invalid encoding (all ones)
--- Expected: none
--- #eval decode 0xffffffff
-
--- Test 5: Endianness verification
--- Bytes [0x22, 0x00, 0x00, 0x8b] should form 0x8b000022
-#eval ((0x22 : UInt32) ||| ((0x00 : UInt32) <<< 8) |||
-       ((0x00 : UInt32) <<< 16) ||| ((0x8b : UInt32) <<< 24))
--- Expected: 0x8b000022 = 2332033058
-
--- Test 6: Byte list decoding (Simple.lean program)
--- Expected: Two instructions (ADD and SUB)
--- #eval decodeBytes [0x22, 0x00, 0x00, 0x8b, 0x42, 0x00, 0x01, 0xcb]
-
--- Test 7: Program creation from bytes
--- #eval Program.fromBytes (BitVec.ofNat 64 0)
---                         [0x22, 0x00, 0x00, 0x8b,
---                          0x42, 0x00, 0x01, 0xcb]
-
--- Test 8: Bit extraction helpers
-#eval extractBits 0x8b000022 31 31  -- sf bit = 1
-#eval extractBits 0x8b000022 30 30  -- op bit = 0
-#eval extractBits 0x8b000022 29 29  -- S bit = 0
-#eval extractBits 0x8b000022 28 21  -- opcode = 0b01011000 = 88
-#eval extractBits 0x8b000022 4 0    -- Rd = 2
-
--- Test 9: Register decoding
--- #eval decodeReg 0   -- X0
--- #eval decodeReg 1   -- X1
--- #eval decodeReg 2   -- X2
--- #eval decodeReg 31  -- SP
-
-/-!
 ## Memory-Based Decoding
 
 The `arm_decode` function reads an instruction from memory at a given PC.
@@ -388,11 +334,13 @@ theorem arm_decode_of_bytes_loaded (s : ArmState) (pc : Word64) (bytes : List UI
   have hb1 := h_loaded 1 (by omega)
   have hb2 := h_loaded 2 (by omega)
   have hb3 := h_loaded 3 (by omega)
-  simp [Memory.read_byte] at hb0 hb1 hb2 hb3
-  simp [read4Bytes, Memory.read_byte]
-  rw [hb0, hb1, hb2, hb3]
+  rw [show pc + BitVec.ofNat 64 0 = pc     from by bv_omega] at hb0
+  rw [show pc + BitVec.ofNat 64 1 = pc + 1 from by bv_omega] at hb1
+  rw [show pc + BitVec.ofNat 64 2 = pc + 2 from by bv_omega] at hb2
+  rw [show pc + BitVec.ofNat 64 3 = pc + 3 from by bv_omega] at hb3
   subst h0 h1 h2 h3
-  rfl
+  simp only [read4Bytes, hb0, hb1, hb2, hb3]
+
 
 /-!
 ## Helper Lemmas for Proofs
