@@ -88,11 +88,11 @@ ensures arm
 Precondition: program loaded, PC at start, registers initialized.
 -/
 def sequence_pre (pc a b c : ℕ) (s : ArmState) : Prop :=
-  aligned_bytes_loaded s.mem (Word64.ofNat pc) sequence_mc ∧
-  s.read_reg Reg.PC = Word64.ofNat pc ∧
-  s.read_reg Reg.X0 = Word64.ofNat a ∧
-  s.read_reg Reg.X1 = Word64.ofNat b ∧
-  s.read_reg Reg.X2 = Word64.ofNat c
+  aligned_bytes_loaded s.mem (BitVec.ofNat 64 pc) sequence_mc ∧
+  s.read_reg Reg.PC = BitVec.ofNat 64 pc ∧
+  s.read_reg Reg.X0 = BitVec.ofNat 64 a ∧
+  s.read_reg Reg.X1 = BitVec.ofNat 64 b ∧
+  s.read_reg Reg.X2 = BitVec.ofNat 64 c
 
 /--
 Intermediate assertion at pc+8: X1 = a + b.
@@ -103,16 +103,16 @@ This is the `\s. read X1 s = word (a + b)` from HOL Light's
 Source: s2n-bignum/arm/tutorial/sequence.ml:77
 -/
 def sequence_mid (pc a b : ℕ) (s : ArmState) : Prop :=
-  aligned_bytes_loaded s.mem (Word64.ofNat pc) sequence_mc ∧
-  s.read_reg Reg.PC = Word64.ofNat (pc + 8) ∧
-  s.read_reg Reg.X1 = Word64.ofNat (a + b)
+  aligned_bytes_loaded s.mem (BitVec.ofNat 64 pc) sequence_mc ∧
+  s.read_reg Reg.PC = BitVec.ofNat 64 (pc + 8) ∧
+  s.read_reg Reg.X1 = BitVec.ofNat 64 (a + b)
 
 /--
 Postcondition: PC at pc+16, X1 = (a+b)*2.
 -/
 def sequence_post (pc a b : ℕ) (s : ArmState) : Prop :=
-  s.read_reg Reg.PC = Word64.ofNat (pc + 16) ∧
-  s.read_reg Reg.X1 = Word64.ofNat ((a + b) * 2)
+  s.read_reg Reg.PC = BitVec.ofNat 64 (pc + 16) ∧
+  s.read_reg Reg.X1 = BitVec.ofNat 64 ((a + b) * 2)
 
 /-!
 ## Symbolic Execution Helpers
@@ -124,25 +124,111 @@ Decode lemmas for each instruction in the sequence program.
 theorem sequence_decode_instr1 (s : ArmState) (pc : Word64)
     (h : aligned_bytes_loaded s.mem pc sequence_mc) :
     arm_decode s pc = some (Instruction.ADD Reg.X1 Reg.X1 Reg.X0) := by
-  sorry
+  obtain ⟨_, h_bytes⟩ := h
+  have h0 : s.mem.read_byte pc = some 0x21 := by
+    have := h_bytes 0 (by decide : 0 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+    exact (BitVec.add_zero pc).symm
+  have h1 : s.mem.read_byte (pc + 1) = some 0x00 := by
+    have := h_bytes 1 (by decide : 1 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+  have h2 : s.mem.read_byte (pc + 2) = some 0x00 := by
+    have := h_bytes 2 (by decide : 2 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+  have h3 : s.mem.read_byte (pc + 3) = some 0x8b := by
+    have := h_bytes 3 (by decide : 3 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+  unfold arm_decode read4Bytes
+  simp only [h0, h1, h2, h3]
+  rfl
 
 /-- Decode instruction 2: ADD X2, X2, X0 -/
 theorem sequence_decode_instr2 (s : ArmState) (pc : Word64)
     (h : aligned_bytes_loaded s.mem pc sequence_mc) :
     arm_decode s (pc + 4) = some (Instruction.ADD Reg.X2 Reg.X2 Reg.X0) := by
-  sorry
+  obtain ⟨_, h_bytes⟩ := h
+  have h4 : s.mem.read_byte (pc + 4) = some 0x42 := by
+    have := h_bytes 4 (by decide : 4 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+  have h5 : s.mem.read_byte (pc + 4 + 1) = some 0x00 := by
+    have := h_bytes 5 (by decide : 5 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+    bv_omega
+  have h6 : s.mem.read_byte (pc + 4 + 2) = some 0x00 := by
+    have := h_bytes 6 (by decide : 6 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+    bv_omega
+  have h7 : s.mem.read_byte (pc + 4 + 3) = some 0x8b := by
+    have := h_bytes 7 (by decide : 7 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+    bv_omega
+  unfold arm_decode read4Bytes
+  simp only [h4, h5, h6, h7]
+  rfl
 
 /-- Decode instruction 3: MOV X3, #2 (encoded as MOVZ) -/
 theorem sequence_decode_instr3 (s : ArmState) (pc : Word64)
     (h : aligned_bytes_loaded s.mem pc sequence_mc) :
     arm_decode s (pc + 8) = some (Instruction.MOVZ Reg.X3 2 0) := by
-  sorry
+  obtain ⟨_, h_bytes⟩ := h
+  have h8 : s.mem.read_byte (pc + 8) = some 0x43 := by
+    have := h_bytes 8 (by decide : 8 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+  have h9 : s.mem.read_byte (pc + 8 + 1) = some 0x00 := by
+    have := h_bytes 9 (by decide : 9 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+    bv_omega
+  have h10 : s.mem.read_byte (pc + 8 + 2) = some 0x80 := by
+    have := h_bytes 10 (by decide : 10 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+    bv_omega
+  have h11 : s.mem.read_byte (pc + 8 + 3) = some 0xd2 := by
+    have := h_bytes 11 (by decide : 11 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+    bv_omega
+  unfold arm_decode read4Bytes
+  simp only [h8, h9, h10, h11]
+  rfl
 
 /-- Decode instruction 4: MUL X1, X1, X3 -/
 theorem sequence_decode_instr4 (s : ArmState) (pc : Word64)
     (h : aligned_bytes_loaded s.mem pc sequence_mc) :
     arm_decode s (pc + 12) = some (Instruction.MUL Reg.X1 Reg.X1 Reg.X3) := by
-  sorry
+  obtain ⟨_, h_bytes⟩ := h
+  have h12 : s.mem.read_byte (pc + 12) = some 0x21 := by
+    have := h_bytes 12 (by decide : 12 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+  have h13 : s.mem.read_byte (pc + 12 + 1) = some 0x7c := by
+    have := h_bytes 13 (by decide : 13 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+    bv_omega
+  have h14 : s.mem.read_byte (pc + 12 + 2) = some 0x03 := by
+    have := h_bytes 14 (by decide : 14 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+    bv_omega
+  have h15 : s.mem.read_byte (pc + 12 + 3) = some 0x9b := by
+    have := h_bytes 15 (by decide : 15 < 16)
+    simp only [sequence_mc] at this
+    convert this using 2
+    bv_omega
+  unfold arm_decode read4Bytes
+  simp only [h12, h13, h14, h15]
+  rfl
 
 /-!
 ## Compositional Verification
@@ -213,7 +299,83 @@ theorem sequence_chunk1_correct (pc a b c : ℕ) :
       (sequence_pre pc a b c)
       (sequence_mid pc a b)
       (maychange_regs [Reg.PC, Reg.X1, Reg.X2, Reg.X3]) := by
-  sorry
+  intro s₀ h_pre
+  obtain ⟨h_loaded, h_pc, h_x0, h_x1, h_x2⟩ := h_pre
+  -- Step 1: Execute ADD X1, X1, X0
+  apply eventually.ind
+  · use step (Instruction.ADD Reg.X1 Reg.X1 Reg.X0) s₀
+    unfold arm
+    simp only [h_pc, sequence_decode_instr1 s₀ (BitVec.ofNat 64 pc) h_loaded]
+  · intro s₁ h_step1
+    unfold arm at h_step1
+    simp only [h_pc, sequence_decode_instr1 s₀ (BitVec.ofNat 64 pc) h_loaded] at h_step1
+    -- Step 2: Execute ADD X2, X2, X0
+    apply eventually.ind
+    · have h_pc1 : s₁.read_reg Reg.PC = BitVec.ofNat 64 pc + 4 := by
+        rw [h_step1] ; unfold step
+        simp only [ArmState.read_write_same]
+        rw [h_pc]
+      have h_loaded1 : aligned_bytes_loaded s₁.mem (BitVec.ofNat 64 pc) sequence_mc := by
+        rw [h_step1] ; unfold step ; simp only [ArmState.write_reg]
+        exact h_loaded
+      use step (Instruction.ADD Reg.X2 Reg.X2 Reg.X0) s₁
+      unfold arm
+      simp only [h_pc1, sequence_decode_instr2 s₁ (BitVec.ofNat 64 pc) h_loaded1]
+    · intro s₂ h_step2
+      apply eventually.base
+      -- Extract s₁ properties
+      have h_s1_pc : s₁.read_reg Reg.PC = BitVec.ofNat 64 pc + 4 := by
+        rw [h_step1] ; unfold step
+        simp only [ArmState.read_write_same]
+        rw [h_pc]
+      have h_s1_x1 : s₁.read_reg Reg.X1 = BitVec.ofNat 64 b + BitVec.ofNat 64 a := by
+        rw [h_step1] ; unfold step
+        simp only [ArmState.read_write_same,
+          ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X1)]
+        rw [h_x1, h_x0]
+      have h_loaded1 : aligned_bytes_loaded s₁.mem (BitVec.ofNat 64 pc) sequence_mc := by
+        rw [h_step1] ; unfold step ; simp only [ArmState.write_reg]
+        exact h_loaded
+      -- Extract s₂ from h_step2
+      unfold arm at h_step2
+      simp only [h_s1_pc, sequence_decode_instr2 s₁ (BitVec.ofNat 64 pc) h_loaded1] at h_step2
+      constructor
+      · -- Postcondition: sequence_mid
+        unfold sequence_mid
+        constructor
+        · -- Memory still loaded
+          rw [h_step2] ; unfold step ; simp only [ArmState.write_reg]
+          exact h_loaded1
+        constructor
+        · -- PC = pc + 8
+          rw [h_step2] ; unfold step
+          simp only [ArmState.read_write_same]
+          rw [h_s1_pc]
+          simp only [BitVec.add_assoc]
+          rw [show (4 : BitVec 64) + 4 = 8 by rfl]
+          rw [← BitVec.ofNat_add_ofNat]
+          rfl
+        · -- X1 = a + b
+          rw [h_step2] ; unfold step
+          simp only [
+            ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X1),
+            ArmState.read_write_diff _ _ _ _ (by decide : Reg.X2 ≠ Reg.X1)]
+          rw [h_s1_x1]
+          rw [BitVec.add_comm, ← BitVec.ofNat_add_ofNat]
+      · -- Frame: only PC, X1, X2, X3 may change
+        unfold maychange_regs unchanged_reg
+        intro r h_not_in
+        simp only [List.mem_cons] at h_not_in
+        push Not at h_not_in
+        obtain ⟨h_ne_pc, h_ne_x1, h_ne_x2, h_ne_x3, _⟩ := h_not_in
+        rw [h_step2] ; unfold step
+        simp only [
+          ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_x2),
+          ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_pc)]
+        rw [h_step1] ; unfold step
+        simp only [
+          ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_x1),
+          ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_pc)]
 
 /--
 Second chunk specification: MOV x3, #2 and MUL x1, x1, x3.
@@ -228,7 +390,94 @@ theorem sequence_chunk2_correct (pc a b : ℕ) :
       (sequence_mid pc a b)
       (sequence_post pc a b)
       (maychange_regs [Reg.PC, Reg.X1, Reg.X2, Reg.X3]) := by
-  sorry
+  intro s₀ h_mid
+  obtain ⟨h_loaded, h_pc, h_x1⟩ := h_mid
+  -- Key: convert BitVec.ofNat 64 (pc + 8) to BitVec.ofNat 64 pc + 8
+  have h_pc_eq : BitVec.ofNat 64 (pc + 8) = BitVec.ofNat 64 pc + 8 := by
+    rw [← BitVec.ofNat_add_ofNat]; rfl
+  rw [h_pc_eq] at h_pc
+  -- Decode lemma for instruction 3 at this state
+  have h_dec3 := sequence_decode_instr3 s₀ (BitVec.ofNat 64 pc) h_loaded
+  -- Step 1: Execute MOVZ X3, #2
+  apply eventually.ind
+  · use step (Instruction.MOVZ Reg.X3 2 0) s₀
+    unfold arm
+    simp only [h_pc, h_dec3]
+  · intro s₁ h_step1
+    unfold arm at h_step1
+    simp only [h_pc, h_dec3] at h_step1
+    -- Step 2: Execute MUL X1, X1, X3
+    apply eventually.ind
+    · have h_pc1 : s₁.read_reg Reg.PC = BitVec.ofNat 64 pc + 12 := by
+        rw [h_step1] ; unfold step
+        simp only [ArmState.read_write_same]
+        rw [h_pc]
+        simp only [BitVec.add_assoc]
+        rw [show (8 : BitVec 64) + 4 = 12 by rfl]
+      have h_loaded1 : aligned_bytes_loaded s₁.mem (BitVec.ofNat 64 pc) sequence_mc := by
+        rw [h_step1] ; unfold step ; simp only [ArmState.write_reg]
+        exact h_loaded
+      use step (Instruction.MUL Reg.X1 Reg.X1 Reg.X3) s₁
+      unfold arm
+      simp only [h_pc1, sequence_decode_instr4 s₁ (BitVec.ofNat 64 pc) h_loaded1]
+    · intro s₂ h_step2
+      apply eventually.base
+      -- Extract s₁ properties
+      have h_s1_pc : s₁.read_reg Reg.PC = BitVec.ofNat 64 pc + 12 := by
+        rw [h_step1] ; unfold step
+        simp only [ArmState.read_write_same]
+        rw [h_pc]
+        simp only [BitVec.add_assoc]
+        rw [show (8 : BitVec 64) + 4 = 12 by rfl]
+      have h_s1_x1 : s₁.read_reg Reg.X1 = BitVec.ofNat 64 (a + b) := by
+        rw [h_step1] ; unfold step
+        simp only [
+          ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X1),
+          ArmState.read_write_diff _ _ _ _ (by decide : Reg.X3 ≠ Reg.X1)]
+        exact h_x1
+      have h_s1_x3 : s₁.read_reg Reg.X3 = BitVec.ofNat 64 (2 * 2 ^ 0) := by
+        rw [h_step1] ; unfold step
+        simp only [ArmState.read_write_same,
+          ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X3)]
+      have h_loaded1 : aligned_bytes_loaded s₁.mem (BitVec.ofNat 64 pc) sequence_mc := by
+        rw [h_step1] ; unfold step ; simp only [ArmState.write_reg]
+        exact h_loaded
+      -- Extract s₂ from h_step2
+      unfold arm at h_step2
+      simp only [h_s1_pc, sequence_decode_instr4 s₁ (BitVec.ofNat 64 pc) h_loaded1] at h_step2
+      constructor
+      · -- Postcondition: sequence_post
+        unfold sequence_post
+        constructor
+        · -- PC = pc + 16
+          rw [h_step2] ; unfold step
+          simp only [ArmState.read_write_same]
+          rw [h_s1_pc]
+          simp only [BitVec.add_assoc]
+          rw [show (12 : BitVec 64) + 4 = 16 by rfl]
+          rw [← BitVec.ofNat_add_ofNat]
+          rfl
+        · -- X1 = (a + b) * 2
+          rw [h_step2] ; unfold step
+          simp only [ArmState.read_write_same,
+            ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X1)]
+          rw [h_s1_x1, h_s1_x3]
+          simp only [show 2 * 2 ^ 0 = 2 by norm_num]
+          rw [← BitVec.ofNat_mul_ofNat]
+      · -- Frame: only PC, X1, X2, X3 may change
+        unfold maychange_regs unchanged_reg
+        intro r h_not_in
+        simp only [List.mem_cons] at h_not_in
+        push Not at h_not_in
+        obtain ⟨h_ne_pc, h_ne_x1, _, h_ne_x3, _⟩ := h_not_in
+        rw [h_step2] ; unfold step
+        simp only [
+          ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_x1),
+          ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_pc)]
+        rw [h_step1] ; unfold step
+        simp only [
+          ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_x3),
+          ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_pc)]
 
 /-!
 ## Main Correctness Theorem

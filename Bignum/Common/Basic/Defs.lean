@@ -83,6 +83,7 @@ let BIGDIGIT_BOUND = prove
 
 Source: s2n-bignum/common/bignum.ml:24-27
 -/
+@[simp]
 theorem bigdigit_bound (n i : Nat) : bigdigit n i < 2 ^ 64 := by
   unfold bigdigit
   apply Nat.mod_lt
@@ -100,6 +101,7 @@ let BIGDIGIT_0 = prove
 
 Source: s2n-bignum/common/bignum.ml:33-35
 -/
+@[simp]
 theorem bigdigit_zero (i : Nat) : bigdigit 0 i = 0 := by
   unfold bigdigit
   simp
@@ -115,6 +117,7 @@ let LOWDIGITS_0 = prove
 
 Source: s2n-bignum/common/bignum.ml:121-123
 -/
+@[simp]
 theorem lowdigits_zero (n : Nat) : lowdigits n 0 = 0 := by
   unfold lowdigits
   rw [Nat.mul_zero, Nat.pow_zero]
@@ -131,6 +134,7 @@ let HIGHDIGITS_0 = prove
 
 Source: s2n-bignum/common/bignum.ml:109-111
 -/
+@[simp]
 theorem highdigits_zero (n : Nat) : highdigits n 0 = n := by
   unfold highdigits
   simp
@@ -146,6 +150,7 @@ let LOWDIGITS_BOUND = prove
 
 Source: s2n-bignum/common/bignum.ml:139-141
 -/
+@[simp]
 theorem lowdigits_bound (n i : Nat) : lowdigits n i < 2 ^ (64 * i) := by
   unfold lowdigits
   exact Nat.mod_lt _ (Nat.two_pow_pos (64 * i))

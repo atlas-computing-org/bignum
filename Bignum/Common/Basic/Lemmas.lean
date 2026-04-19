@@ -204,7 +204,16 @@ Source: s2n-bignum/common/bignum.ml:131-137
 theorem highdigits_top (n k : Nat) (h : n < 2 ^ (64 * k)) :
     highdigits n (k - 1) = bigdigit n (k - 1) := by
   unfold highdigits bigdigit
-  sorry
+  -- Need to show: n / 2^(64*(k-1)) = (n / 2^(64*(k-1))) % 2^64
+  -- i.e., n / 2^(64*(k-1)) < 2^64
+  symm
+  apply Nat.mod_eq_of_lt
+  rcases k with _ | k
+  · simp at h ⊢; omega
+  · simp only [Nat.add_sub_cancel]
+    rw [Nat.mul_succ] at h
+    rw [Nat.pow_add] at h
+    exact Nat.div_lt_of_lt_mul h
 
 
 /--
@@ -219,6 +228,7 @@ let HIGHDIGITS_TRIVIAL = prove
 
 Source: s2n-bignum/common/bignum.ml:117-119
 -/
+@[simp]
 theorem highdigits_trivial (n : Nat) :
     highdigits 0 n = 0 := by
   unfold highdigits
@@ -293,6 +303,7 @@ let LOWDIGITS_TRIVIAL = prove
 
 Source: s2n-bignum/common/bignum.ml:151-153
 -/
+@[simp]
 theorem lowdigits_trivial (n : Nat) :
     lowdigits 0 n = 0 := by
   unfold lowdigits
@@ -357,7 +368,19 @@ Source: s2n-bignum/common/bignum.ml:159-162
 theorem lowdigits_lowdigits (n i j : Nat) :
     lowdigits (lowdigits n i) j = lowdigits n (min i j) := by
   unfold lowdigits
-  sorry
+  -- Goal: (n % 2^(64*i)) % 2^(64*j) = n % 2^(64 * min i j)
+  by_cases hjle : j ≤ i
+  · -- j ≤ i: use Nat.mod_mod_of_dvd
+    rw [Nat.min_eq_right hjle]
+    rw [Nat.mod_mod_of_dvd]
+    apply Nat.pow_dvd_pow
+    omega
+  · -- i < j: n % 2^(64*i) < 2^(64*i) ≤ 2^(64*j), so second mod is identity
+    push Not at hjle
+    rw [Nat.min_eq_left (Nat.le_of_lt hjle)]
+    apply Nat.mod_eq_of_lt
+    exact Nat.lt_of_lt_of_le (Nat.mod_lt n (Nat.two_pow_pos (64 * i)))
+      (Nat.pow_le_pow_right (by norm_num : 1 ≤ 2) (by omega))
 
 
 /--
@@ -374,10 +397,22 @@ Source: s2n-bignum/common/bignum.ml:19-22
 
 Note: We use Finset.sum instead of HOL Light's nsum.
 -/
+private theorem lowdigits_eq_sum (n : Nat) : ∀ k,
+    lowdigits n k = ((List.range k).map (fun i => 2 ^ (64 * i) * bigdigit n i)).sum := by
+  intro k
+  induction k with
+  | zero =>
+    simp [lowdigits_zero]
+  | succ k ih =>
+    have hsuc := lowdigits_succ n k
+    rw [List.range_succ, List.map_append, List.sum_append]
+    simp only [List.map_cons, List.map_nil, List.sum_cons, List.sum_nil, Nat.add_zero]
+    omega
+
 theorem bigdigitsum_works (n k : Nat) (h : n < 2 ^ (64 * k))
- : (Finset.range k).toList.foldl (init := 0)
-   (fun i => 2 ^ (64 * i) * bigdigit n i) = n := by
-  sorry
+  : ((List.range k).map (fun i => 2 ^ (64 * i) * bigdigit n i)).sum = n := by
+  rw [← lowdigits_eq_sum]
+  exact lowdigits_of_lt n k h
 
 
 /--
@@ -433,8 +468,14 @@ Source: s2n-bignum/common/bignum.ml:41-62
 theorem bigdigit_add_left (a n b i : Nat) (h : i < n) :
     bigdigit (a + 2 ^ (64 * n) * b) i = bigdigit a i := by
   unfold bigdigit
-  sorry
-
+  have hexp_split : 2 ^ (64 * n) = 2 ^ (64 * i) * 2 ^ (64 * (n - i)) := by
+    rw [← Nat.pow_add]; congr 1; omega
+  rw [hexp_split, Nat.mul_assoc]
+  rw [Nat.add_mul_div_left _ _ (Nat.two_pow_pos (64 * i))]
+  have hexp_split2 : 2 ^ (64 * (n - i)) = 2 ^ 64 * 2 ^ (64 * (n - i - 1)) := by
+    rw [← Nat.pow_add]; congr 1; omega
+  rw [hexp_split2, Nat.mul_assoc]
+  rw [Nat.add_mul_mod_self_left]
 
 /--
 Successor digit extraction: extracting digit (i+1) from a 2-word number.
@@ -459,7 +500,12 @@ Source: s2n-bignum/common/bignum.ml:64-71
 theorem bigdigit_succ (n i t : Nat) (h : t < 2 ^ 64) :
     bigdigit (t + 2 ^ 64 * n) (i + 1) = bigdigit n i := by
   unfold bigdigit
-  sorry
+  have hexp : 64 * (i + 1) = 64 + 64 * i := by ring
+  rw [hexp, Nat.pow_add, ← Nat.div_div_eq_div_mul]
+  have hdiv : (t + 2 ^ 64 * n) / 2 ^ 64 = n := by
+    rw [Nat.add_mul_div_left _ _ (Nat.two_pow_pos 64)]
+    rw [Nat.div_eq_of_lt h, Nat.zero_add]
+  rw [hdiv]
 
 
 /--
@@ -507,6 +553,18 @@ Source: s2n-bignum/common/bignum.ml:174-184
 theorem bigdigit_lowdigits (n i j : Nat) :
     bigdigit (lowdigits n i) j = if j < i then bigdigit n j else 0 := by
   unfold bigdigit lowdigits
-  sorry
+  split
+  · -- Case j < i
+    rename_i hji
+    have := high_low_digits n i
+    have hdecomp : n = lowdigits n i + 2 ^ (64 * i) * highdigits n i := by omega
+    conv_rhs => rw [hdecomp]
+    exact (bigdigit_add_left (lowdigits n i) i (highdigits n i) j hji).symm
+  · -- Case ¬(j < i), i.e., i ≤ j
+    rename_i hji
+    push Not at hji
+    apply bigdigit_of_lt
+    exact Nat.lt_of_lt_of_le (lowdigits_bound n i)
+      (Nat.pow_le_pow_right (by norm_num : 1 ≤ 2) (by omega))
 
 end Bignum

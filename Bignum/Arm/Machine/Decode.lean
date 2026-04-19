@@ -160,6 +160,44 @@ def decode (w : UInt32) : Option Instruction :=
         some (Instruction.ADD rd rn rm)
     else
       none  -- Unsupported: 32-bit, or with flags/shift
+  -- MOVZ (Move wide with zero, 64-bit)
+  -- Pattern: [sf=1; opc=10; 100101; hw:2; imm16:16; Rd:5]
+  -- Bits 28-23 = 0b100101 identifies Move wide immediate family
+  -- opc=10 (bits 30-29) selects MOVZ variant
+  else if extractBits w 28 23 == 0b100101 then
+    let sf := getBit w 31           -- 64-bit if 1
+    let opc := extractBits w 30 29  -- 10 = MOVZ
+    let hw := extractBits w 22 21   -- Shift: 00=0, 01=16, 10=32, 11=48
+    let imm16 := extractBits w 20 5 -- 16-bit immediate
+    let Rd := extractBits w 4 0     -- Destination register
+    if sf && opc == 0b10 then
+      let rd := decodeReg Rd
+      let shift := hw.toNat * 16
+      some (Instruction.MOVZ rd imm16.toNat shift)
+    else
+      none
+  -- MUL (multiply, encoded as MADD with Ra=XZR)
+  -- Pattern: [sf=1; op54=00; 11011; op31=000; Rm:5; o0=0; Ra=11111; Rn:5; Rd:5]
+  -- Bits 28-24 = 0b11011 identifies Data Processing 3 source
+  -- MADD: sf=1, op54=00, op31=000, o0=0
+  -- MUL is MADD with Ra = 11111 (XZR)
+  else if extractBits w 28 24 == 0b11011 then
+    let sf := getBit w 31
+    let op54 := extractBits w 30 29
+    let op31 := extractBits w 23 21
+    let Rm := extractBits w 20 16
+    let o0 := getBit w 15
+    let Ra := extractBits w 14 10
+    let Rn := extractBits w 9 5
+    let Rd := extractBits w 4 0
+    -- Check: 64-bit, MADD (op54=00, op31=000, o0=0), Ra=11111 (MUL alias)
+    if sf && op54 == 0 && op31 == 0 && !o0 && Ra == 0b11111 then
+      let rd := decodeReg Rd
+      let rn := decodeReg Rn
+      let rm := decodeReg Rm
+      some (Instruction.MUL rd rn rm)
+    else
+      none
   else
     -- Other instruction families not yet implemented
     none
@@ -223,66 +261,12 @@ def simple_program_bytes : List UInt8 :=
    0x42, 0x00, 0x01, 0xcb]  -- SUB X2, X2, X1
 
 def simple_program (pc : Nat) : Program :=
-  Program.fromBytes (Word64.ofNat pc) simple_program_bytes
+  Program.fromBytes (BitVec.ofNat 64 pc) simple_program_bytes
 ```
 -/
 def Program.fromBytes (base_addr : Word64) (bytes : List UInt8) : Program :=
   { base_addr := base_addr
     instructions := decodeBytes bytes }
-
-/-!
-## Tests and Validation
-
-These tests verify the decoder against known instruction encodings from the
-Simple.lean tutorial.
--/
-
--- Test 1: Decode ADD X2, X1, X0
--- Binary: 10001011 00000000 00000000 00100010 = 0x8b000022
--- Expected: ADD X2, X1, X0
--- #eval decode 0x8b000022
--- Note: Commented out due to missing native implementation for Instruction repr
-
--- Test 2: Decode SUB X2, X2, X1
--- Binary: 11001011 00000001 00000000 01000010 = 0xcb010042
--- Expected: SUB X2, X2, X1
--- #eval decode 0xcb010042
-
--- Test 3: Invalid encoding (all zeros)
--- Expected: none
--- #eval decode 0x00000000
-
--- Test 4: Invalid encoding (all ones)
--- Expected: none
--- #eval decode 0xffffffff
-
--- Test 5: Endianness verification
--- Bytes [0x22, 0x00, 0x00, 0x8b] should form 0x8b000022
-#eval ((0x22 : UInt32) ||| ((0x00 : UInt32) <<< 8) |||
-       ((0x00 : UInt32) <<< 16) ||| ((0x8b : UInt32) <<< 24))
--- Expected: 0x8b000022 = 2332033058
-
--- Test 6: Byte list decoding (Simple.lean program)
--- Expected: Two instructions (ADD and SUB)
--- #eval decodeBytes [0x22, 0x00, 0x00, 0x8b, 0x42, 0x00, 0x01, 0xcb]
-
--- Test 7: Program creation from bytes
--- #eval Program.fromBytes (Word64.ofNat 0)
---                         [0x22, 0x00, 0x00, 0x8b,
---                          0x42, 0x00, 0x01, 0xcb]
-
--- Test 8: Bit extraction helpers
-#eval extractBits 0x8b000022 31 31  -- sf bit = 1
-#eval extractBits 0x8b000022 30 30  -- op bit = 0
-#eval extractBits 0x8b000022 29 29  -- S bit = 0
-#eval extractBits 0x8b000022 28 21  -- opcode = 0b01011000 = 88
-#eval extractBits 0x8b000022 4 0    -- Rd = 2
-
--- Test 9: Register decoding
--- #eval decodeReg 0   -- X0
--- #eval decodeReg 1   -- X1
--- #eval decodeReg 2   -- X2
--- #eval decodeReg 31  -- SP
 
 /-!
 ## Memory-Based Decoding
@@ -346,7 +330,17 @@ theorem arm_decode_of_bytes_loaded (s : ArmState) (pc : Word64) (bytes : List UI
     (h2 : bytes[2]'(by omega) = b2)
     (h3 : bytes[3]'(by omega) = b3) :
     read4Bytes s pc = some (b0, b1, b2, b3) := by
-  sorry
+  have hb0 := h_loaded 0 (by omega)
+  have hb1 := h_loaded 1 (by omega)
+  have hb2 := h_loaded 2 (by omega)
+  have hb3 := h_loaded 3 (by omega)
+  rw [show pc + BitVec.ofNat 64 0 = pc     from by bv_omega] at hb0
+  rw [show pc + BitVec.ofNat 64 1 = pc + 1 from by bv_omega] at hb1
+  rw [show pc + BitVec.ofNat 64 2 = pc + 2 from by bv_omega] at hb2
+  rw [show pc + BitVec.ofNat 64 3 = pc + 3 from by bv_omega] at hb3
+  subst h0 h1 h2 h3
+  simp only [read4Bytes, hb0, hb1, hb2, hb3]
+
 
 /-!
 ## Helper Lemmas for Proofs

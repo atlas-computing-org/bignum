@@ -5,7 +5,5 @@ Author: Alexandre Rademaker
 -/
 module
 
-public import Bignum.Arm.Machine.State
-public import Bignum.Arm.Machine.Instruction
-public import Bignum.Arm.Machine.Decode
-public import Bignum.Arm.Machine.Loader
+public import BignumTests.Arm.Machine.Decode
+public import BignumTests.Arm.Machine.Loader

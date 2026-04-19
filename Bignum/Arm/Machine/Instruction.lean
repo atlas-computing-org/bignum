@@ -48,7 +48,7 @@ inductive Instruction
   | MOVZ : Reg → ℕ → ℕ → Instruction  -- MOVZ Rd, #imm, LSL #pos
   | MUL  : Reg → Reg → Reg → Instruction  -- MUL Rd, Rn, Rm (Rd := Rn * Rm)
   | RET  : Instruction
-  deriving Repr
+  deriving Repr, DecidableEq
 
 /--
 Pretty-print an instruction in ARM assembly syntax.
@@ -65,8 +65,8 @@ def Instruction.toString : Instruction → String
   | EOR rd rn rm  => s!"EOR {rd}, {rn}, {rm}"
   | LSL rd rn imm => s!"LSL {rd}, {rn}, #{imm}"
   | LSR rd rn imm => s!"LSR {rd}, {rn}, #{imm}"
-  | LDR rd addr   => s!"LDR {rd}, [{addr.val}]"
-  | STR rd addr   => s!"STR {rd}, [{addr.val}]"
+  | LDR rd addr   => s!"LDR {rd}, [{addr.toNat}]"
+  | STR rd addr   => s!"STR {rd}, [{addr.toNat}]"
   | MOV rd rn     => s!"MOV {rd}, {rn}"
   | MOVZ rd imm pos => s!"MOVZ {rd}, #{imm}, LSL #{pos}"
   | MUL rd rn rm    => s!"MUL {rd}, {rn}, {rm}"
@@ -88,7 +88,7 @@ def Program.split (p : Program) (i : Nat) : Program × Program :=
   let second_instrs := p.instructions.drop i
   let first_prog := { base_addr := p.base_addr, instructions := first_instrs }
   let second_prog := {
-    base_addr := p.base_addr + Word64.ofNat (i * 4),
+    base_addr := p.base_addr + BitVec.ofNat 64 (i * 4),
     instructions := second_instrs }
   (first_prog, second_prog)
 
@@ -110,10 +110,28 @@ Source: s2n-bignum/arm/proofs/arm.ml (ARM semantics)
 open Bignum
 
 /--
+Advance the program counter by 4 bytes (one instruction width).
+
+This is used by all non-branch instructions to move to the next instruction.
+Branch instructions (e.g., RET, B, BL) set PC directly and do not use this helper.
+
+Note: The PC advance reads the *original* PC from `s` (the state before the
+instruction's effect), ensuring correct semantics even when the instruction
+writes to PC as a side effect.
+-/
+@[reducible]
+def advance_pc (s : ArmState) (s' : ArmState) : ArmState :=
+  s'.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+
+/--
 Execute a single ARM instruction, transforming the state.
 
 This corresponds to the symbolic execution performed by HOL Light's
 ARM_STEPS_TAC in the proof.
+
+For non-branch instructions, `advance_pc` is applied to advance the program
+counter by 4 bytes after computing the instruction's effect. Branch
+instructions (e.g., RET) set PC directly.
 -/
 def step (instr : Instruction) (s : ArmState) : ArmState :=
   match instr with
@@ -122,130 +140,117 @@ def step (instr : Instruction) (s : ArmState) : ArmState :=
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n + val_m  -- BitVec addition (wraps at 2^64)
-    s.write_reg rd result |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result)
   | Instruction.SUB rd rn rm =>
     -- Xd := Xn - Xm (word subtraction, no flags)
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n - val_m  -- BitVec subtraction (wraps at 2^64)
-    s.write_reg rd result |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result)
   | Instruction.ADDS rd rn rm =>
     -- Xd := Xn + Xm, set flags
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let sum_nat := val_n.toNat + val_m.toNat
-    let result := Word64.ofNat sum_nat
+    let result := BitVec.ofNat 64 sum_nat
     let carry := sum_nat >= 2^64
     let flags := { s.flags with
       C := carry
       Z := result.toNat = 0
       N := result.toNat >= 2^63
     }
-    s.write_reg rd result
-     |>.write_flags flags |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result |>.write_flags flags)
   | Instruction.SUBS rd rn rm =>
     -- Xd := Xn - Xm, set flags
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let diff_nat := val_n.toNat - val_m.toNat
-    let result := Word64.ofNat diff_nat
+    let result := BitVec.ofNat 64 diff_nat
     let borrow := val_n.toNat < val_m.toNat
     let flags := { s.flags with
       C := !borrow  -- Carry flag is inverted for subtraction
       Z := result.toNat = 0
       N := result.toNat >= 2^63
     }
-    s.write_reg rd result
-    |>.write_flags flags |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result |>.write_flags flags)
   | Instruction.ADCS rd rn rm =>
     -- Xd := Xn + Xm + Carry, set flags
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let carry_in := if s.flags.C then 1 else 0
     let sum_nat := val_n.toNat + val_m.toNat + carry_in
-    let result := Word64.ofNat sum_nat
+    let result := BitVec.ofNat 64 sum_nat
     let carry := sum_nat >= 2^64
     let flags := { s.flags with
       C := carry
       Z := result.toNat = 0
       N := result.toNat >= 2^63
     }
-    s.write_reg rd result
-     |>.write_flags flags |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result |>.write_flags flags)
   | Instruction.SBCS rd rn rm =>
     -- Xd := Xn - Xm - ~Carry, set flags
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let borrow_in := if s.flags.C then 0 else 1
     let diff_nat := val_n.toNat - val_m.toNat - borrow_in
-    let result := Word64.ofNat diff_nat
+    let result := BitVec.ofNat 64 diff_nat
     let borrow := val_n.toNat < val_m.toNat + borrow_in
     let flags := { s.flags with
       C := !borrow
       Z := result.toNat = 0
       N := result.toNat >= 2^63
     }
-    s.write_reg rd result
-     |>.write_flags flags
-     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result |>.write_flags flags)
   | Instruction.AND rd rn rm =>
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n &&& val_m
-    s.write_reg rd result |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result)
   | Instruction.ORR rd rn rm =>
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n ||| val_m
-    s.write_reg rd result
-     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result)
   | Instruction.EOR rd rn rm =>
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n ^^^ val_m
-    s.write_reg rd result
-     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result)
   | Instruction.LSL rd rn imm =>
     let val_n := s.read_reg rn
     let result := val_n <<< imm
-    s.write_reg rd result
-     |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result)
   | Instruction.LSR rd rn imm =>
     let val_n := s.read_reg rn
     let result := val_n >>> imm
-    s.write_reg rd result
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result)
   | Instruction.LDR rd addr =>
     match s.read_mem_word64 addr with
     | some val =>
-      s.write_reg rd val
-      |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+      advance_pc s (s.write_reg rd val)
     | none => s  -- Memory fault: state unchanged
   | Instruction.STR rd addr =>
     let val := s.read_reg rd
-    s.write_mem_word64 addr val
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_mem_word64 addr val)
   | Instruction.MOV rd rn =>
     let val := s.read_reg rn
-    s.write_reg rd val
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd val)
   | Instruction.MOVZ rd imm pos =>
     -- MOVZ: Move wide with zero
     -- Rd := imm * 2^pos (16-bit immediate shifted to position pos)
     -- pos must be 0, 16, 32, or 48
-    let val := Word64.ofNat (imm * 2^pos)
-    s.write_reg rd val
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    let val := BitVec.ofNat 64 (imm * 2^pos)
+    advance_pc s (s.write_reg rd val)
   | Instruction.MUL rd rn rm =>
     -- MUL: Multiply
     -- Rd := Rn * Rm (low 64 bits of product)
     let val_n := s.read_reg rn
     let val_m := s.read_reg rm
     let result := val_n * val_m  -- BitVec multiplication (wraps at 2^64)
-    s.write_reg rd result
-    |>.write_reg Reg.PC (s.read_reg Reg.PC + 4)
+    advance_pc s (s.write_reg rd result)
   | Instruction.RET =>
     -- Return: set PC to X30 (link register)
+    -- Note: RET is a branch instruction and does NOT use advance_pc
     let return_addr := s.read_reg Reg.X30
     s.write_reg Reg.PC return_addr
 
