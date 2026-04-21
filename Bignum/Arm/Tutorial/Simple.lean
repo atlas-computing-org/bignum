@@ -7,6 +7,8 @@ module
 
 public import Bignum.Arm.Spec
 public import Bignum.Arm.Machine
+public import Bignum.Arm.Tactic
+public import Bignum.Arm.Simulate
 public import Bignum.Common.Word
 
 @[expose] public section
@@ -47,6 +49,11 @@ let simple_mc = new_definition `simple_mc = [
 def simple_mc : List UInt8 :=
   [0x22, 0x00, 0x00, 0x8b,  -- add x2, x1, x0
    0x42, 0x00, 0x01, 0xcb]  -- sub x2, x2, x1
+
+/-- The two decoded instructions (used in proofs and simulation). -/
+def simple_instrs : List Instruction :=
+  [Instruction.ADD Reg.X2 Reg.X1 Reg.X0,
+   Instruction.SUB Reg.X2 Reg.X2 Reg.X1]
 
 /-!
 ## Loading Bytes from an Object File
@@ -105,37 +112,18 @@ bytes, but the proof of `SIMPLE_SPEC` only depends on `simple_mc` as defined
 above, never on any file-system read.
 -/
 
-
 /-!
-## EXEC
+## Simulation with `#eval`
 
-`ARM_MK_EXEC_RULE simple_mc` in HOL Light pre-computes a decode theorem for each
-instruction offset. Here we prove the two decode facts directly.
-
-Corresponds to:
-```ocaml
-let EXEC = ARM_MK_EXEC_RULE simple_mc;;
-```
+The computational nature of Lean lets us run the program before proving it.
+Both simulation approaches (A and B) are available.
 -/
 
-/-- Decode result at offset 0: ADD X2, X1, X0. -/
-theorem EXEC_0 (s : ArmState) (pc : Word64)
-    (h : aligned_bytes_loaded s.mem pc simple_mc) :
-    arm_decode s pc = some (Instruction.ADD Reg.X2 Reg.X1 Reg.X0) := by
-  obtain ⟨_h₁, hb⟩ := h
-  have key := exec_at s pc simple_mc 0 hb (by decide)
-                (Instruction.ADD Reg.X2 Reg.X1 Reg.X0) (by decide)
-  rwa [show pc + BitVec.ofNat 64 0 = pc from by bv_omega] at key
+-- Approach A: simulate via pre-decoded exec
+-- #eval simulateExec simple_mc 0 [(Reg.X0, 5), (Reg.X1, 3)]
 
-/-- Decode result at offset 4: SUB X2, X2, X1. -/
-theorem EXEC_4 (s : ArmState) (pc : Word64)
-    (h : aligned_bytes_loaded s.mem pc simple_mc) :
-    arm_decode s (pc + 4) = some (Instruction.SUB Reg.X2 Reg.X2 Reg.X1) := by
-  obtain ⟨_h₁, hb⟩ := h
-  have key := exec_at s pc simple_mc 4 hb (by decide)
-                (Instruction.SUB Reg.X2 Reg.X2 Reg.X1) (by decide)
-  rwa [show pc + BitVec.ofNat 64 4 = pc + 4 from by bv_omega] at key
-
+-- Approach B: simulate via fetch-decode-execute loop
+-- #eval simulateLoop 2 simple_mc 0 [(Reg.X0, 5), (Reg.X1, 3)]
 
 /-!
 ## SIMPLE_SPEC
@@ -153,7 +141,38 @@ let SIMPLE_SPEC = prove(
          read X2 s = word a)
     (MAYCHANGE [PC;X2])`, ...);;
 ```
+
+HOL Light proof (5 tactics):
+```ocaml
+  ENSURES_INIT_TAC "s0" THEN
+  ARM_STEPS_TAC EXEC (1--2) THEN
+  ENSURES_FINAL_STATE_TAC THEN
+  ASM_REWRITE_TAC[] THEN
+  CONV_TAC WORD_RULE
+```
 -/
+
+/-- Prove that `simple_instrs` decode correctly from a state with `simple_mc` loaded. -/
+private theorem simple_decode_list (s : ArmState) (pc : Word64)
+    (hb : bytes_loaded s.mem pc simple_mc)
+    (h_pc : s.read_reg Reg.PC = pc) :
+    arm_decode_list simple_instrs s := by
+  constructor
+  · have key := exec_at s pc simple_mc 0 hb (by decide)
+                  (Instruction.ADD Reg.X2 Reg.X1 Reg.X0) (by decide)
+    rwa [show pc + BitVec.ofNat 64 0 = pc from by bv_omega, ← h_pc] at key
+  constructor
+  · let s₁ := step (Instruction.ADD Reg.X2 Reg.X1 Reg.X0) s
+    have h_mem1 : s₁.mem = s.mem := by simp [step, advance_pc, ArmState.write_reg, s₁]
+    have h_pc1 : s₁.read_reg Reg.PC = pc + 4 := by
+      simp only [ArmState.read_reg, step, advance_pc, ArmState.write_reg, BitVec.ofNat_eq_ofNat,
+        ↓reduceIte, BitVec.add_left_inj, s₁]
+      rw [← ArmState.read_reg, h_pc]
+    have hb' : bytes_loaded s₁.mem pc simple_mc := h_mem1 ▸ hb
+    have key := exec_at s₁ pc simple_mc 4 hb' (by decide)
+                  (Instruction.SUB Reg.X2 Reg.X2 Reg.X1) (by decide)
+    rwa [show pc + BitVec.ofNat 64 4 = pc + 4 from by bv_omega, ← h_pc1] at key
+  · trivial
 
 theorem SIMPLE_SPEC (pc a b : ℕ) :
     ensures arm
@@ -164,58 +183,29 @@ theorem SIMPLE_SPEC (pc a b : ℕ) :
       (fun s => s.read_reg Reg.PC = BitVec.ofNat 64 (pc + 8) ∧
                 s.read_reg Reg.X2 = BitVec.ofNat 64 a)
       (maychange_regs [Reg.PC, Reg.X2]) := by
-  intro s₀ ⟨h_loaded, h_pc, h_x0, h_x1⟩
-  -- Step s0 → s1: execute ADD X2, X1, X0
-  apply eventually.ind
-  · exact ⟨step (Instruction.ADD Reg.X2 Reg.X1 Reg.X0) s₀,
-           by unfold arm; simp only [h_pc, EXEC_0 s₀ _ h_loaded]⟩
-  · intro s₁ h_arm1
-    -- h_arm1 : arm s₀ s₁  ⟹  s₁ = step ADD s₀
-    have h_eq1 : s₁ = step (Instruction.ADD Reg.X2 Reg.X1 Reg.X0) s₀ := by
-      unfold arm at h_arm1; simp only [h_pc, EXEC_0 s₀ _ h_loaded] at h_arm1; exact h_arm1
-    -- Derived facts about s₁
-    have h_s1_pc : s₁.read_reg Reg.PC = BitVec.ofNat 64 pc + 4 := by
-      rw [h_eq1]; unfold step; simp [ArmState.read_write_same, h_pc]
-    have h_s1_x1 : s₁.read_reg Reg.X1 = BitVec.ofNat 64 b := by
-      rw [h_eq1]; unfold step
-      simp [ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X1),
-            ArmState.read_write_diff _ _ _ _ (by decide : Reg.X2 ≠ Reg.X1), h_x1]
-    have h_s1_x2 : s₁.read_reg Reg.X2 = BitVec.ofNat 64 b + BitVec.ofNat 64 a := by
-      rw [h_eq1]; unfold step
-      simp [ArmState.read_write_same,
-            ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X2),
-            h_x1, h_x0]
-    have h_s1_loaded : aligned_bytes_loaded s₁.mem (BitVec.ofNat 64 pc) simple_mc := by
-      rw [h_eq1]; unfold step; simp [ArmState.write_reg, h_loaded]
-    -- Step s1 → s2: execute SUB X2, X2, X1
-    apply eventually.ind
-    · exact ⟨step (Instruction.SUB Reg.X2 Reg.X2 Reg.X1) s₁,
-             by unfold arm; simp only [h_s1_pc, EXEC_4 s₁ _ h_s1_loaded]⟩
-    · intro s₂ h_arm2
-      -- h_arm2 : arm s₁ s₂  ⟹  s₂ = step SUB s₁
-      have h_eq2 : s₂ = step (Instruction.SUB Reg.X2 Reg.X2 Reg.X1) s₁ := by
-        unfold arm at h_arm2; simp only [h_s1_pc, EXEC_4 s₁ _ h_s1_loaded] at h_arm2
-        exact h_arm2
-      apply eventually.base
-      constructor
-      · constructor
-        · -- PC = pc + 8
-          rw [h_eq2]; unfold step
-          simp only [ArmState.read_write_same, BitVec.ofNat_eq_ofNat]
-          bv_omega
-        · -- X2 = a
-          rw [h_eq2]; unfold step
-          simp [ArmState.read_write_same,
-                ArmState.read_write_diff _ _ _ _ (by decide : Reg.PC ≠ Reg.X2),
-                h_s1_x2, h_s1_x1, BitVec.add_comm, BitVec.add_sub_cancel]
-      · -- Frame: only PC and X2 changed
-        unfold maychange_regs unchanged_reg
-        intro r h_not_in
-        simp only [List.mem_cons] at h_not_in
-        push Not at h_not_in
-        obtain ⟨h_ne_pc, h_ne_x2, _⟩ := h_not_in
-        rw [h_eq2, h_eq1]; unfold step
-        simp [ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_x2),
-              ArmState.read_write_diff _ _ _ _ (Ne.symm h_ne_pc)]
+  apply ensures_of_exec simple_instrs
+  · -- Decode: instructions decode correctly from memory
+    intro s ⟨h_loaded, h_pc, _, _⟩
+    exact simple_decode_list s _ h_loaded.2 h_pc
+  · -- Post: postcondition holds on exec simple_instrs s
+    intro s ⟨_, h_pc, h_x0, h_x1⟩
+    simp only [exec, simple_instrs, List.foldl,
+               step, advance_pc, ArmState.write_reg, ArmState.read_reg]
+    rw [show s.regs Reg.PC = BitVec.ofNat 64 pc from h_pc]
+    rw [show s.regs Reg.X0 = BitVec.ofNat 64 a from h_x0]
+    rw [show s.regs Reg.X1 = BitVec.ofNat 64 b from h_x1]
+    simp only [show Reg.X2 = Reg.PC ↔ False from by decide,
+               show Reg.PC = Reg.X2 ↔ False from by decide,
+               show Reg.X1 = Reg.PC ↔ False from by decide,
+               show Reg.X1 = Reg.X2 ↔ False from by decide,
+               if_false, if_true]
+    exact ⟨by bv_omega, by bv_omega⟩
+  · -- Frame: only PC and X2 changed
+    intro s _ r hr
+    simp only [List.mem_cons, List.mem_nil_iff, or_false, not_or] at hr
+    obtain ⟨hne_pc, hne_x2⟩ := hr
+    simp only [unchanged_reg, exec, simple_instrs, List.foldl,
+               step, advance_pc, ArmState.write_reg, ArmState.read_reg]
+    simp [hne_pc, hne_x2]
 
 end Bignum.Arm.Tutorial

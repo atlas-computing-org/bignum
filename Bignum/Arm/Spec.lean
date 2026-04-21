@@ -214,6 +214,95 @@ abbrev ensures_arm := ensures arm
 
 
 /-!
+## Computational Bridge: exec → ensures
+
+The key insight from the INSTRUCTION.md document: `exec` is a **real function**
+that Lean can compute. We don't need to manually apply `eventually.ind` for each
+instruction step — we can work with the computed final state directly.
+
+The bridge theorems here connect:
+1. `arm_decode_list`: a decidable Prop that each instruction decodes correctly
+   from the sequence of states produced by `exec`
+2. `eventually_exec`: the computed state is reachable via `eventually arm`
+3. `ensures_of_exec`: the main bridge reducing `ensures` to properties of `exec`
+
+This is the Lean analogue of HOL Light's ARM_STEPS_TAC: instead of manually
+stepping through instructions, we reduce the proof obligation to facts about
+the computed final state.
+-/
+
+/--
+`arm_decode_list instrs s` holds when each instruction in `instrs` is correctly
+decoded from the sequence of states produced by executing them from `s`.
+
+The intermediate states are **computed** (via `step`), not existentially
+quantified. This makes the predicate decidable for concrete byte sequences.
+-/
+def arm_decode_list : List Instruction → ArmState → Prop
+  | [],            _ => True
+  | instr :: rest, s =>
+    arm_decode s (s.read_reg Reg.PC) = some instr ∧
+    arm_decode_list rest (step instr s)
+
+/--
+If `arm_decode_list` holds, then `eventually arm` reaches `exec instrs s`.
+-/
+theorem eventually_exec (instrs : List Instruction) (s : ArmState)
+    (h : arm_decode_list instrs s) :
+    eventually arm (· = exec instrs s) s := by
+  induction instrs generalizing s with
+  | nil =>
+    exact eventually.base rfl
+  | cons instr rest ih =>
+    obtain ⟨hdec, hrest⟩ := h
+    apply eventually.ind
+    · exact ⟨step instr s, by unfold arm; simp [hdec]⟩
+    · intro s' hs'
+      unfold arm at hs'
+      simp only [hdec] at hs'
+      subst hs'
+      exact eventually_mono (fun s'' heq => by simp [exec, heq]) _ (ih _ hrest)
+
+/--
+The main bridge: reduce `ensures arm` to properties of the computed final state.
+
+Instead of manually applying `eventually.ind` for each instruction, prove:
+1. The instructions decode correctly (`arm_decode_list`)
+2. The postcondition holds on `exec instrs s`
+3. The frame condition holds between `s` and `exec instrs s`
+-/
+theorem ensures_of_exec
+    (instrs : List Instruction)
+    {pre post : ArmState → Prop} {frame : ArmState → ArmState → Prop}
+    (h_decode : ∀ s, pre s → arm_decode_list instrs s)
+    (h_post : ∀ s, pre s → post (exec instrs s))
+    (h_frame : ∀ s, pre s → frame s (exec instrs s)) :
+    ensures arm pre post frame := by
+  intro s hpre
+  have hev := eventually_exec instrs s (h_decode s hpre)
+  exact eventually_mono (fun s' heq => heq ▸ ⟨h_post s hpre, h_frame s hpre⟩) s hev
+
+
+/--
+If the bytes at each instruction offset decode to the expected instructions,
+and the bytes are loaded in memory, then `arm_decode_list` holds for the given
+instruction list and a state whose PC points to the base.
+
+This is the lemma that bridges `aligned_bytes_loaded` (from preconditions)
+to `arm_decode_list` (needed by `ensures_of_exec`). It lets you prove
+`arm_decode_list` in a proof by providing individual `exec_at`-style facts.
+
+For concrete byte lists (like `simple_mc`), the individual decode hypotheses
+are closed by `by decide`.
+-/
+theorem arm_decode_list_cons (instr : Instruction) (rest : List Instruction)
+    (s : ArmState)
+    (h_head : arm_decode s (s.read_reg Reg.PC) = some instr)
+    (h_tail : arm_decode_list rest (step instr s)) :
+    arm_decode_list (instr :: rest) s :=
+  ⟨h_head, h_tail⟩
+
+/-!
 ## Frame Conditions (MAYCHANGE)
 
 Frame conditions specify which components of the state MAY change during
