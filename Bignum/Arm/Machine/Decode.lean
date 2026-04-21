@@ -315,31 +315,65 @@ def arm_decode (s : ArmState) (pc : Word64) : Option Instruction :=
   | none => none
 
 /--
-If bytes are loaded at an address, read4Bytes succeeds.
+Core decode lemma: given the four concrete byte values at `pc`..`pc+3`, resolve
+`arm_decode` by computation.
 
-TODO: Complete the proof. The key steps:
-1. Extract the 4 bytes from h_loaded
-2. Show they match the memory reads in read4Bytes
+This is the building block for `EXEC_N` theorems: callers extract the byte
+values from `aligned_bytes_loaded` and delegate the actual decode to this lemma.
+Analogous to what `ARM_MK_EXEC_RULE` does in HOL Light.
 -/
-theorem arm_decode_of_bytes_loaded (s : ArmState) (pc : Word64) (bytes : List UInt8)
-    (h_loaded : Bignum.bytes_loaded s.mem pc bytes)
-    (h_len : bytes.length ≥ 4)
+theorem arm_decode_of_mem_bytes (s : ArmState) (pc : Word64)
     (b0 b1 b2 b3 : UInt8)
-    (h0 : bytes[0]'(by omega) = b0)
-    (h1 : bytes[1]'(by omega) = b1)
-    (h2 : bytes[2]'(by omega) = b2)
-    (h3 : bytes[3]'(by omega) = b3) :
-    read4Bytes s pc = some (b0, b1, b2, b3) := by
-  have hb0 := h_loaded 0 (by omega)
-  have hb1 := h_loaded 1 (by omega)
-  have hb2 := h_loaded 2 (by omega)
-  have hb3 := h_loaded 3 (by omega)
-  rw [show pc + BitVec.ofNat 64 0 = pc     from by bv_omega] at hb0
-  rw [show pc + BitVec.ofNat 64 1 = pc + 1 from by bv_omega] at hb1
-  rw [show pc + BitVec.ofNat 64 2 = pc + 2 from by bv_omega] at hb2
-  rw [show pc + BitVec.ofNat 64 3 = pc + 3 from by bv_omega] at hb3
-  subst h0 h1 h2 h3
-  simp only [read4Bytes, hb0, hb1, hb2, hb3]
+    (h0 : s.mem.read_byte pc = some b0)
+    (h1 : s.mem.read_byte (pc + 1) = some b1)
+    (h2 : s.mem.read_byte (pc + 2) = some b2)
+    (h3 : s.mem.read_byte (pc + 3) = some b3)
+    (instr : Instruction)
+    (hdecode : decode (b0.toUInt32 ||| (b1.toUInt32 <<< 8) |||
+                       (b2.toUInt32 <<< 16) ||| (b3.toUInt32 <<< 24)) = some instr) :
+    arm_decode s pc = some instr := by
+  unfold arm_decode read4Bytes
+  simp only [h0, h1, h2, h3, hdecode]
+
+/--
+`exec_at` is the Lean analogue of HOL Light's `ARM_MK_EXEC_RULE`.
+
+Given `bytes_loaded` and a byte offset `i`, it resolves `arm_decode` at
+`pc + BitVec.ofNat 64 i` purely by computation:
+- byte extraction from `bytes_loaded` (by index)
+- instruction decode via `decide` on concrete `UInt32`
+
+In HOL Light, `ARM_MK_EXEC_RULE` generates one proved decode theorem per
+instruction in a single pass. Here, `exec_at` is the reusable lemma that
+each `EXEC_N` theorem delegates to, with `i` and `instr` instantiated
+concretely, keeping `EXEC_N` proofs to two lines each.
+
+Usage (see `Simple.lean`):
+```lean
+theorem EXEC_0 ... := by
+  obtain ⟨_, hb⟩ := h
+  have key := exec_at s pc simple_mc 0 hb (by decide)
+                (Instruction.ADD Reg.X2 Reg.X1 Reg.X0) (by decide)
+  rwa [show pc + BitVec.ofNat 64 0 = pc from by bv_omega] at key
+```
+-/
+theorem exec_at (s : ArmState) (pc : Word64) (bytes : List UInt8) (i : Nat)
+    (h : bytes_loaded s.mem pc bytes) (hi : i + 3 < bytes.length)
+    (instr : Instruction)
+    (hdecode : decode ((bytes[i]'(by omega)).toUInt32
+                       ||| ((bytes[i + 1]'(by omega)).toUInt32 <<< 8)
+                       ||| ((bytes[i + 2]'(by omega)).toUInt32 <<< 16)
+                       ||| ((bytes[i + 3]'(by omega)).toUInt32 <<< 24)) = some instr) :
+    arm_decode s (pc + BitVec.ofNat 64 i) = some instr := by
+  unfold arm_decode read4Bytes
+  have hb0 := h i     (by omega)
+  have hb1 := h (i+1) (by omega)
+  have hb2 := h (i+2) (by omega)
+  have hb3 := h (i+3) (by omega)
+  rw [show pc + BitVec.ofNat 64 i + 1 = pc + BitVec.ofNat 64 (i+1) from by bv_omega]
+  rw [show pc + BitVec.ofNat 64 i + 2 = pc + BitVec.ofNat 64 (i+2) from by bv_omega]
+  rw [show pc + BitVec.ofNat 64 i + 3 = pc + BitVec.ofNat 64 (i+3) from by bv_omega]
+  simp only [hb0, hb1, hb2, hb3, hdecode]
 
 
 /-!

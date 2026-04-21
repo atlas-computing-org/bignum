@@ -12,8 +12,7 @@ public import Bignum.Arm.Machine.Decode
 /-!
 # Object File Loader
 
-Loads ARM machine code bytes directly from object files (`.o`), without
-relying on `objcopy` or `llvm-objcopy`.
+Loads ARM machine code bytes directly from object files (`.o`).
 
 ## Supported Formats
 
@@ -48,29 +47,33 @@ namespace Bignum.Arm
 /-!
 ## Binary Parsing Helpers
 
-Little-endian field readers used by the Mach-O and ELF parsers.
-These are in the public namespace to enable users to build additional parsers.
+Little-endian field readers used by the Mach-O and ELF parsers. These are in the
+public namespace to enable users to build additional parsers.
 -/
 
 def readLE16 (bytes : ByteArray) (off : Nat) : Option UInt16 :=
-  if off + 2 ≤ bytes.size then
-    some (bytes[off]!.toUInt16 ||| (bytes[off + 1]!.toUInt16 <<< 8))
+  if h : off + 2 ≤ bytes.size then
+    some (bytes[off].toUInt16 ||| (bytes[off + 1].toUInt16 <<< 8))
   else none
 
 def readLE32 (bytes : ByteArray) (off : Nat) : Option UInt32 :=
-  if off + 4 ≤ bytes.size then
-    let b := fun i => bytes[off + i]!.toUInt32
+  if h : off + 4 ≤ bytes.size then
+    let b (i : Nat) (hi : i < 4 := by omega) : UInt32 :=
+      bytes[off + i].toUInt32
     some (b 0 ||| (b 1 <<< 8) ||| (b 2 <<< 16) ||| (b 3 <<< 24))
   else none
 
 def readLE64 (bytes : ByteArray) (off : Nat) : Option UInt64 :=
-  if off + 8 ≤ bytes.size then
-    let b := fun i => bytes[off + i]!.toUInt64
-    some (b 0 ||| (b 1 <<< 8) ||| (b 2 <<< 16) ||| (b 3 <<< 24) |||
-          (b 4 <<< 32) ||| (b 5 <<< 40) ||| (b 6 <<< 48) ||| (b 7 <<< 56))
+  if h : off + 8 ≤ bytes.size then
+    let b (i : Nat) (hi : i < 8 := by omega) : UInt64 :=
+      bytes[off + i].toUInt64
+    some (b 0         ||| (b 1 <<<  8) ||| (b 2 <<< 16) |||
+         (b 3 <<< 24) ||| (b 4 <<< 32) ||| (b 5 <<< 40) |||
+         (b 6 <<< 48) ||| (b 7 <<< 56))
   else none
 
-/-- Read a null-terminated string from a fixed-width field (e.g., 16-byte sectname). -/
+/-- Read a null-terminated string from a fixed-width field (e.g., 16-byte
+  sectname). -/
 def readFixedStr (bytes : ByteArray) (off len : Nat) : String :=
   let raw := (List.range len).map fun i =>
     if off + i < bytes.size then bytes[off + i]! else 0
@@ -125,8 +128,8 @@ def parseMachO64 (bytes : ByteArray) : Option (List UInt8) :=
   if readLE32 bytes 0 != some 0xFEEDFACF then none
   else
     let ncmds := (readLE32 bytes 16).getD 0
-    -- Walk load commands; carry (current_offset, found_result) as state.
-    -- Note: in MH_OBJECT files the LC_SEGMENT_64 segname is "" (empty), not "__TEXT".
+    -- Walk load commands; carry (current_offset, found_result) as state. Note:
+    -- in MH_OBJECT files the LC_SEGMENT_64 segname is "" (empty), not "__TEXT".
     -- We therefore check only sectname == "__text" inside every LC_SEGMENT_64.
     let (_, found) := (List.range ncmds.toNat).foldl (fun (lc_off, acc) _ =>
       match acc with
@@ -201,6 +204,7 @@ def parseELF64 (bytes : ByteArray) : Option (List UInt8) :=
           | _, _             => none
         else none) none
 
+
 /-!
 ## Public Extraction API
 -/
@@ -269,7 +273,8 @@ Verify that the text section of an object file matches expected bytes.
 This is the Lean equivalent of `define_assert_from_elf`: reads the `.o`,
 extracts the text section, and asserts it matches the proof-level byte list.
 -/
-def assertTextSectionFromObj (path : System.FilePath) (expected : List UInt8) : IO Bool := do
+def assertTextSectionFromObj (path : System.FilePath) (expected : List UInt8)
+  : IO Bool := do
   match ← readTextSectionFromFile path with
   | .ok actual =>
     match compareBytes expected actual with
@@ -289,9 +294,9 @@ def readBinaryFile (path : System.FilePath) : IO (List UInt8) :=
 
 /--
 Verify that a raw binary file matches expected bytes.
-For workflows that use `objcopy -j .text -O binary` to pre-extract sections.
 -/
-def assertBytesFromFile (path : System.FilePath) (expected : List UInt8) : IO Bool := do
+def assertBytesFromFile (path : System.FilePath) (expected : List UInt8)
+  : IO Bool := do
   let actual ← readBinaryFile path
   match compareBytes expected actual with
   | .ok =>
@@ -300,6 +305,7 @@ def assertBytesFromFile (path : System.FilePath) (expected : List UInt8) : IO Bo
   | result =>
     IO.println s!"[Loader] {path}: FAIL - {result}"
     return false
+
 
 /-!
 ## Program Construction
@@ -324,6 +330,7 @@ def Program.fromObjVerified (base_addr : Word64) (path : System.FilePath)
 /-- Load a Program from a raw binary file (pre-extracted .text section). -/
 def Program.fromFile (base_addr : Word64) (path : System.FilePath) : IO Program :=
   return Program.fromBytes base_addr (← readBinaryFile path)
+
 
 /-!
 ## Formatting Utilities
@@ -360,6 +367,7 @@ where
       [a, b, c, d, e, f, g, h] :: chunkBy8 rest
     | []       => []
     | remaining => [remaining]
+
 
 /-!
 ## Elaboration-Time Commands

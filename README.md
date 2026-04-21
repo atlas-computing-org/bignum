@@ -52,17 +52,17 @@ architecture:
 
 ### Core Infrastructure
 
-| Lean File                             | HOL Light Source                       | Description                         |
-|---------------------------------------|----------------------------------------|-------------------------------------|
-| `Bignum/Common/Basic/Defs.lean`       | `s2n-bignum/common/bignum.ml:11-77`    | Core bignum definitions             |
-| `Bignum/Common/Basic/Lemmas.lean`     | `s2n-bignum/common/bignum.ml:79-150`   | Fundamental theorems                |
-| `Bignum/Common/Word.lean`             | HOL Light `Library/words.ml`           | 64-bit word operations              |
-| `Bignum/Common/Memory.lean`           | `s2n-bignum/common/components.ml`      | Memory model                        |
-| `Bignum/Arm/Machine/State.lean`       | `s2n-bignum/arm/proofs/arm.ml`         | ARM machine state                   |
-| `Bignum/Arm/Machine/Instruction.lean` | `s2n-bignum/arm/proofs/instruction.ml` | ARM instructions                    |
-| `Bignum/Arm/Machine/Decode.lean`      | `s2n-bignum/arm/proofs/decode.ml`      | Instruction decoder                 |
-| `Bignum/Arm/Machine/Loader.lean`      | `s2n-bignum/common/common/elf.ml`      | ELF/Mach-O object loader            |
-| `Bignum/Arm/Spec.lean`                | `s2n-bignum/arm/proofs/arm.ml`         | Semantics + specification framework |
+| Lean File                             | HOL Light Source             | Description                         |
+|---------------------------------------|------------------------------|-------------------------------------|
+| `Bignum/Common/Basic/Defs.lean`       | `common/bignum.ml:11-77`     | Core bignum definitions             |
+| `Bignum/Common/Basic/Lemmas.lean`     | `common/bignum.ml:79-150`    | Fundamental theorems                |
+| `Bignum/Common/Word.lean`             | HOL Light `Library/words.ml` | 64-bit word operations              |
+| `Bignum/Common/Memory.lean`           | `common/components.ml`       | Memory model                        |
+| `Bignum/Arm/Machine/State.lean`       | `arm/proofs/arm.ml`          | ARM machine state                   |
+| `Bignum/Arm/Machine/Instruction.lean` | `arm/proofs/instruction.ml`  | ARM instructions                    |
+| `Bignum/Arm/Machine/Decode.lean`      | `arm/proofs/decode.ml`       | Instruction decoder                 |
+| `Bignum/Arm/Machine/Loader.lean`      | `common/common/elf.ml`       | ELF/Mach-O object loader            |
+| `Bignum/Arm/Spec.lean`                | `arm/proofs/arm.ml`          | Semantics + specification framework |
 
 
 ## Building
@@ -234,7 +234,8 @@ intermediate assertions
 (128×128→256-bit squaring)
 
 **New capabilities needed:**
-- SIMD/NEON instructions: `LDR Q`, `UMULL_VEC`, `UMULL2_VEC`, `XTN`, `UZP2`, `UMOV`, `EXTR`
+- SIMD/NEON instructions: `LDR Q`, `UMULL_VEC`, `UMULL2_VEC`, `XTN`, `UZP2`,
+  `UMOV`, `EXTR`
 - NEON helper: vector reasoning lemmas and tactics
 - Advanced simplification: `WORD_BITMANIP_SIMP_LEMMAS`, custom word equations
 - Realistic optimization patterns
