@@ -135,4 +135,8 @@ def ArmState.showRegs (s : ArmState) : List String :=
   let pc := s!"PC = {s.read_reg Reg.PC}"
   gp ++ [pc]
 
+instance : Repr ArmState where
+  reprPrec s _ :=
+    Std.Format.text (String.intercalate "\n" (ArmState.showRegs s))
+
 end Bignum.Arm
