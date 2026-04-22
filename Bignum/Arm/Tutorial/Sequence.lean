@@ -156,22 +156,19 @@ theorem sequence_chunk1_correct (pc a b c : ℕ) :
   · intro s ⟨h_loaded, h_pc, _, _, _⟩
     exact chunk1_decode_list s _ h_loaded.2 h_pc
   · -- Post: sequence_mid
-    intro s ⟨h_loaded, h_pc, h_x0, h_x1, _⟩
+    intro s ⟨h_loaded, h_pc, h_x0, h_x1, h_x2⟩
     simp only [sequence_mid, exec, chunk1_instrs, List.foldl,
                step, advance_pc, ArmState.write_reg, ArmState.read_reg]
     rw [show s.regs Reg.PC = BitVec.ofNat 64 pc from h_pc]
     rw [show s.regs Reg.X0 = BitVec.ofNat 64 a from h_x0]
     rw [show s.regs Reg.X1 = BitVec.ofNat 64 b from h_x1]
-    simp only [show Reg.X1 = Reg.PC ↔ False from by decide,
-               show Reg.PC = Reg.X1 ↔ False from by decide,
-               show Reg.X2 = Reg.PC ↔ False from by decide,
-               show Reg.PC = Reg.X2 ↔ False from by decide,
-               show Reg.X2 = Reg.X1 ↔ False from by decide,
-               show Reg.X1 = Reg.X2 ↔ False from by decide,
-               show Reg.X0 = Reg.PC ↔ False from by decide,
-               show Reg.X0 = Reg.X1 ↔ False from by decide,
-               if_false, if_true]
-    exact ⟨h_loaded, by bv_omega, by rw [← BitVec.ofNat_add_ofNat]; bv_omega⟩
+    simp only [Reg.X1, Reg.X2, Reg.X0, if_true]
+    constructor
+    · assumption
+    · constructor
+      · bv_omega
+      · simp only [Fin.isValue, reduceCtorEq, ↓reduceIte, Reg.X.injEq, Fin.reduceEq]
+        bv_omega
   · -- Frame
     intro s _ r hr
     simp only [List.mem_cons, List.mem_nil_iff, or_false, not_or] at hr
@@ -215,6 +212,7 @@ theorem sequence_chunk2_correct (pc a b : ℕ) :
     simp only [unchanged_reg, exec, chunk2_instrs, List.foldl,
                step, advance_pc, ArmState.write_reg, ArmState.read_reg]
     simp [hne_pc, hne_x1, hne_x3]
+
 
 /-!
 ## Compositional Verification

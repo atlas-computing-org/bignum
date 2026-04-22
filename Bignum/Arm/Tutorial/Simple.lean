@@ -192,14 +192,13 @@ theorem SIMPLE_SPEC (pc a b : ℕ) :
     simp only [exec, simple_instrs, List.foldl,
                step, advance_pc, ArmState.write_reg, ArmState.read_reg]
     rw [show s.regs Reg.PC = BitVec.ofNat 64 pc from h_pc]
-    rw [show s.regs Reg.X0 = BitVec.ofNat 64 a from h_x0]
-    rw [show s.regs Reg.X1 = BitVec.ofNat 64 b from h_x1]
-    simp only [show Reg.X2 = Reg.PC ↔ False from by decide,
-               show Reg.PC = Reg.X2 ↔ False from by decide,
-               show Reg.X1 = Reg.X2 ↔ False from by decide,
-               show Reg.X1 = Reg.PC ↔ False from by decide,
-               if_false, if_true]
-    exact ⟨by bv_omega, by bv_omega⟩
+    rw [show s.regs Reg.X0 = BitVec.ofNat 64 a  from h_x0]
+    rw [show s.regs Reg.X1 = BitVec.ofNat 64 b  from h_x1]
+    simp only [Reg.X2, Reg.X1, if_true]
+    constructor
+    · bv_omega
+    · simp only [Fin.isValue, reduceCtorEq, ↓reduceIte, Reg.X.injEq, Fin.reduceEq]
+      bv_omega
   · -- Frame: only PC and X2 changed
     intro s _ r hr
     simp only [List.mem_cons, List.mem_nil_iff, or_false, not_or] at hr
