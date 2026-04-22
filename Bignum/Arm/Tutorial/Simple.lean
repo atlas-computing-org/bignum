@@ -196,8 +196,8 @@ theorem SIMPLE_SPEC (pc a b : ℕ) :
     rw [show s.regs Reg.X1 = BitVec.ofNat 64 b from h_x1]
     simp only [show Reg.X2 = Reg.PC ↔ False from by decide,
                show Reg.PC = Reg.X2 ↔ False from by decide,
-               show Reg.X1 = Reg.PC ↔ False from by decide,
                show Reg.X1 = Reg.X2 ↔ False from by decide,
+               show Reg.X1 = Reg.PC ↔ False from by decide,
                if_false, if_true]
     exact ⟨by bv_omega, by bv_omega⟩
   · -- Frame: only PC and X2 changed
