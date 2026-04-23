@@ -236,7 +236,8 @@ theorem highdigits_trivial (n : Nat) :
 
 
 /--
-Compositionality of highdigits: taking highdigits twice is equivalent to adding indices.
+Compositionality of highdigits: taking highdigits twice is equivalent to adding
+indices.
 
 Corresponds to HOL Light theorem:
 ```ocaml

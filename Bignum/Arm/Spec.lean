@@ -441,4 +441,47 @@ theorem maychange_regs_refl (regs : List Reg) (s : ArmState) :
   intro r _
   rfl
 
+/--
+Transitivity of `maychange_regs`: if only `regs` may change from s1 to s2,
+and only `regs` may change from s2 to s3, then only `regs` may change from s1 to s3.
+-/
+theorem maychange_regs_trans (regs : List Reg) :
+    ∀ s1 s2 s3, maychange_regs regs s1 s2 →
+                maychange_regs regs s2 s3 →
+                maychange_regs regs s1 s3 := by
+  intro s1 s2 s3 h12 h23
+  unfold maychange_regs unchanged_reg at *
+  intro r hr; rw [h12 r hr, h23 r hr]
+
+
+/-!
+## Sequential Composition
+
+`ensures_sequence` chains two `ensures` proofs through an intermediate assertion,
+corresponding to HOL Light's `ENSURES_SEQUENCE_TAC`.
+-/
+
+/--
+Sequential composition: chain two `ensures` with the same frame when the frame
+is transitive.
+
+Source: s2n-bignum/common/relational.ml (ENSURES_SEQUENCE_TAC)
+-/
+theorem ensures_sequence
+    {step : α → α → Prop}
+    (pre mid post : α → Prop)
+    (frame : α → α → Prop)
+    (h1 : ensures step pre mid frame)
+    (h2 : ensures step mid post frame)
+    (h_frame_trans : ∀ s1 s2 s3, frame s1 s2 → frame s2 s3 → frame s1 s3) :
+    ensures step pre post frame := by
+  intro s₀ h_pre
+  have h_ev1 := h1 s₀ h_pre
+  apply eventually_trans _ _ h_ev1
+  intro s₁ ⟨h_mid, h_f1⟩
+  have h_ev2 := h2 s₁ h_mid
+  exact eventually_mono (fun s₂ hpf =>
+    ⟨hpf.1, h_frame_trans s₀ s₁ s₂ h_f1 hpf.2⟩) s₁ h_ev2
+
+
 end Bignum.Arm
