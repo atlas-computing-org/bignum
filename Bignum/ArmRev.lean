@@ -144,6 +144,39 @@ def SP (s : State) : UInt64 :=
 def WREG (s : State) (n : Nat) : UInt32 :=
   UInt32.ofBitVec $ BitVec.truncate 32 (s.XREG n).toBitVec
 
+def W0 (s : State) : UInt32 := s.WREG 0
+def W1 (s : State) : UInt32 := s.WREG 1
+def W2 (s : State) : UInt32 := s.WREG 2
+def W3 (s : State) : UInt32 := s.WREG 3
+def W4 (s : State) : UInt32 := s.WREG 4
+def W5 (s : State) : UInt32 := s.WREG 5
+def W6 (s : State) : UInt32 := s.WREG 6
+def W7 (s : State) : UInt32 := s.WREG 7
+def W8 (s : State) : UInt32 := s.WREG 8
+def W9 (s : State) : UInt32 := s.WREG 9
+def W10 (s : State) : UInt32 := s.WREG 10
+def W11 (s : State) : UInt32 := s.WREG 11
+def W12 (s : State) : UInt32 := s.WREG 12
+def W13 (s : State) : UInt32 := s.WREG 13
+def W14 (s : State) : UInt32 := s.WREG 14
+def W15 (s : State) : UInt32 := s.WREG 15
+def W16 (s : State) : UInt32 := s.WREG 16
+def W17 (s : State) : UInt32 := s.WREG 17
+def W18 (s : State) : UInt32 := s.WREG 18
+def W19 (s : State) : UInt32 := s.WREG 19
+def W20 (s : State) : UInt32 := s.WREG 20
+def W21 (s : State) : UInt32 := s.WREG 21
+def W22 (s : State) : UInt32 := s.WREG 22
+def W23 (s : State) : UInt32 := s.WREG 23
+def W24 (s : State) : UInt32 := s.WREG 24
+def W25 (s : State) : UInt32 := s.WREG 25
+def W26 (s : State) : UInt32 := s.WREG 26
+def W27 (s : State) : UInt32 := s.WREG 27
+def W28 (s : State) : UInt32 := s.WREG 28
+def W29 (s : State) : UInt32 := s.WREG 29
+def W30 (s : State) : UInt32 := s.WREG 30
+def WSP (s : State) : UInt32 := s.WREG 31
+
 end State
 
 end BigNum.ArmRev
