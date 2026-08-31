@@ -48,12 +48,28 @@ structure State where
 
 namespace State
 
-/-- The empty state. -/
-def empty : State :=
-  ⟨0, λ _ ↦ 0, λ _ ↦ 0, 0, λ _ ↦ 0, []⟩
+/-- The all zeros state. -/
+def allZeros : State := {
+  PC            := 0
+  registers     := λ _ ↦ 0
+  simdregisters := λ _ ↦ 0
+  flags         := 0
+  memory        := λ _ ↦ 0
+  events        := []
+}
+
+/-- The all ones state. -/
+def allOnes : State := {
+  PC            := UInt64.ofBitVec $ BitVec.allOnes 64
+  registers     := λ _ ↦ UInt64.ofBitVec $ BitVec.allOnes 64
+  simdregisters := λ _ ↦ BitVec.allOnes 128
+  flags         := BitVec.allOnes 4
+  memory        := λ _ ↦ UInt8.ofBitVec $ BitVec.allOnes 8,
+  events        := []
+}
 
 instance : Inhabited State where
-  default := empty
+  default := allZeros
 
 /-- The negative condition flag. -/
 def NF (s : State) : Bool :=
@@ -75,9 +91,18 @@ def VF (s : State) : Bool :=
 def XZR (_ : State) : UInt64 :=
   0
 
+@[simp]
+theorem XZR_zero (s : State) : s.XZR = 0 := by
+  rfl
+
 /-- Main integer registers. -/
-def XREG (s : State) : BitVec 5 → UInt64 :=
-  s.registers
+def XREG (s : State) (n : Nat) : UInt64 :=
+  if n.ble 31 then s.registers n else s.XZR
+
+theorem XREG_eq_zero_of_n_gt_31 (s : State) (n : Nat) :
+    n > 31 → s.XREG n = 0 := by
+  simp [XREG]; intro h _
+  have _ := Nat.not_le_of_gt h; contradiction
 
 def X0 (s : State) : UInt64 := s.XREG 0
 def X1 (s : State) : UInt64 := s.XREG 1
@@ -114,6 +139,10 @@ def X30 (s : State) : UInt64 := s.XREG 30
 /-- Stack pointer. --/
 def SP (s : State) : UInt64 :=
   s.XREG 31
+
+/-- 32-bit versions of the main registers. -/
+def WREG (s : State) (n : Nat) : UInt32 :=
+  UInt32.ofBitVec $ BitVec.truncate 32 (s.XREG n).toBitVec
 
 end State
 
